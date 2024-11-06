@@ -3,6 +3,8 @@ import { AppModule } from './app.module';
 import { Transport, MicroserviceOptions } from '@nestjs/microservices';
 
 async function bootstrap() {
+  console.log("ENV",process.env.ENV)
+  console.log("check",process.env.ENV== 'dev')
   const app = await NestFactory.create(AppModule, {
     logger: ['log', 'debug', 'error', 'warn', 'verbose'], // Adjust based on LOG_LEVEL
   });
@@ -33,6 +35,7 @@ async function bootstrap() {
 
   // Connect Kafka microservice
   app.connectMicroservice(kafkaMicroserviceOptions);
+
 
   // Start all microservices (including Kafka)
   await app.startAllMicroservices();
