@@ -4,6 +4,8 @@ services:
     build: ./agent-services-1
     container_name: agent-services-1
     hostname: agent-services-1.manuplex-uswest-2.local
+    ports:
+      - "5004:3000"
     networks:
       - ${NETWORK_NAME}
     volumes:
