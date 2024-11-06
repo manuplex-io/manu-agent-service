@@ -1,0 +1,3 @@
+ENV=DEV
+NETWORK_NAME=MP-dev-net1-overlay
+LOG_LEVEL=DEBUG

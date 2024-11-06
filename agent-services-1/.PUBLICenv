@@ -1,0 +1,21 @@
+# .env file
+SERVICE_NAME=agent-services
+SERVICE_ID=agent-services-1
+KAFKAJS_NO_PARTITIONER_WARNING=1
+
+OB1_DB_HOST=postgres-service-1.orangebox-uswest-2.local
+OB1_DB_PORT=5432
+OB1_DB_USERNAME_AGENTSERVICE=ob1-agentServices-db-user
+OB1_DB_PASSWORD_AGENTSERVICE=
+OB1_DB_DATABASE_AGENTSERVICE=ob1-agentServices-db
+OB1_DB_USERNAME_AGENTSERVICE_DEV=ob1-agentServices-db-user-create
+OB1_DB_PASSWORD_AGENTSERVICE_DEV=
+
+AWS_REGION=us-west-2
+AWS_ACCESS_KEY_ID=
+AWS_SECRET_ACCESS_KEY=
+LAMBDA_ROLE_ARN=arn:aws:iam::471fgjfgj179:role/lambda-python-executor-agent-services #change and create
+
+ANTHROPIC_API_KEY=
+OPENAI_API_KEY=
+PORTKEY_API_KEY=
