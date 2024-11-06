@@ -152,7 +152,8 @@ export class LLMService {
             const messages = this.constructMessages(request);
 
             this.logger.debug(`Sending request to ${request.config.provider} with config:`, request.config);
-
+            console.log("request",request)
+            console.log("messages",messages)
             switch (request.config.provider) {
                 // case LLMProvider.ANTHROPIC:
                 //     return await this.callAnthropic(request, messages);
