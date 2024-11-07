@@ -93,6 +93,9 @@ export class LLMRequest {
     @ValidateNested({ each: true })
     @Type(() => Message)
     messageHistory?: Message[];
+
+    @IsOptional()
+    responseFormat: any
 }
 
 export interface LLMResponse {
