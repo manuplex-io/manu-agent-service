@@ -9,6 +9,7 @@ export class OB1ToolCategory {
     @Column({
         type: 'varchar',
         length: 100,
+        unique: true,
         comment: 'Name of the tool category (e.g., "Python Scripts", "API Calls", "Data Processing")'
     })
     toolCategoryName: string;

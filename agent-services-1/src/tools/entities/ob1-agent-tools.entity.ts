@@ -10,21 +10,9 @@ import {
   Check
 } from 'typeorm';
 import { OB1ToolCategory } from './ob1-agent-toolCategory.entity';
+import { ToolType, ToolStatus } from 'src/tools/interfaces/tools.interface';
 
-export enum ToolType {
-  PYTHON_SCRIPT = 'python_script',
-  API_ENDPOINT = 'api_endpoint',
-  SYSTEM_COMMAND = 'system_command',
-  DATABASE_QUERY = 'database_query',
-  CUSTOM_FUNCTION = 'custom_function'
-}
 
-export enum ToolStatus {
-  ACTIVE = 'active',
-  DEPRECATED = 'deprecated',
-  TESTING = 'testing',
-  DISABLED = 'disabled'
-}
 
 @Entity('ob1-agent-tools')
 export class OB1AgentTools {
@@ -70,6 +58,13 @@ export class OB1AgentTools {
 
   @Column({
     type: 'jsonb',
+    comment: 'Schema definition for the expected input parameters from environment variables or system',
+    default: {}
+  })
+  ENVinputSchema: Record<string, any>;
+
+  @Column({
+    type: 'jsonb',
     comment: 'Schema definition for the expected output format',
     default: {}
   })
@@ -109,7 +104,7 @@ export class OB1AgentTools {
     default: 0,
     comment: 'Number of times this tool has been used'
   })
-  useCount: number;
+  toolUseCount: number;
 
   @Column({
     type: 'float',
@@ -123,8 +118,10 @@ export class OB1AgentTools {
     default: 0,
     comment: 'Success rate (0-1) of tool executions'
   })
-  @Check(`"successRate" >= 0 AND "successRate" <= 1`)
-  successRate: number;
+  toolSuccessRate: number;
+
+  // @Check(`"toolsuccessRate" >= 0 AND "toolsuccessRate" <= 1`)
+
 
   @Column({
     type: 'jsonb',
@@ -138,7 +135,7 @@ export class OB1AgentTools {
     default: 1,
     comment: 'Tool version number'
   })
-  version: number;
+  toolVersion: number;
 
   @ManyToOne(() => OB1ToolCategory, category => category.tools)
   category: OB1ToolCategory;

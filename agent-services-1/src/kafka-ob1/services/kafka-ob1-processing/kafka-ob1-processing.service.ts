@@ -1,9 +1,9 @@
 // src/kafka-ob1/services/kafka-ob1-processing/kafka-ob1-processing.service.ts
 import { Injectable, Logger, ValidationPipe, BadRequestException } from '@nestjs/common';
-import { OB1MessageValue, OB1MessageHeader } from 'src/interfaces/ob1-message.interfaces';
+import { OB1MessageValue, OB1MessageHeader } from 'src/kafka-ob1/interfaces/ob1-message.interfaces';
 import { KafkaContext } from '@nestjs/microservices';
-import { LLMRequest, LLMResponse } from 'src/llm/interfaces/llm.interfaces';
-import { LLMService } from 'src/llm/services/llm.service';
+import { LLMRequest, LLMResponse } from 'src/llms/interfaces/llm.interfaces';
+import { LLMService } from 'src/llms/services/llm.service';
 
 
 @Injectable()

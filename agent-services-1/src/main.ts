@@ -34,7 +34,6 @@ async function bootstrap() {
   // Connect Kafka microservice
   app.connectMicroservice(kafkaMicroserviceOptions);
 
-
   // Start all microservices (including Kafka)
   await app.startAllMicroservices();
 

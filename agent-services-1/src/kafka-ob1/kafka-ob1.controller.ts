@@ -1,7 +1,7 @@
 // src/kafka-ob1/kafka-ob1.controller.ts
 import { Controller, OnModuleInit, Logger } from '@nestjs/common';
 import { MessagePattern, Payload, Ctx, KafkaContext } from '@nestjs/microservices';
-import { OB1MessageValue, OB1MessageHeader, validateMessageFields, CURRENT_SCHEMA_VERSION } from 'src/interfaces/ob1-message.interfaces';
+import { OB1MessageValue, OB1MessageHeader, validateMessageFields, CURRENT_SCHEMA_VERSION } from 'src/kafka-ob1/interfaces/ob1-message.interfaces';
 import { KafkaOb1ProcessingService } from './services/kafka-ob1-processing/kafka-ob1-processing.service';
 
 @Controller('kafka-ob1')

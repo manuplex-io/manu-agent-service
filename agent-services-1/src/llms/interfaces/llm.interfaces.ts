@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsEnum, IsOptional, Min, Max, IsArray, ValidateNested, IsDateString, IsUUID, Length } from 'class-validator';
+import { IsString, IsNumber, IsEnum, IsOptional, Min, Max, IsArray, ValidateNested, IsDateString, IsUUID, Length, IsObject } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export enum LLMProvider {
@@ -15,6 +15,23 @@ export enum AnthropicModels {
 export enum OpenAIModels {
     GPT_4O_MINI = 'gpt-4o-mini',
     GPT_4O = 'gpt-4o',
+}
+
+export class Tool {
+    @IsString()
+    toolId: string;
+
+    @IsString()
+    toolName: string;
+
+    @IsString()
+    toolDescription: string;
+
+    @IsOptional()
+    inputSchema: Record<string, any>;
+
+    @IsOptional()
+    outputSchema: Record<string, any>;
 }
 
 export class LLMConfig {
@@ -54,6 +71,22 @@ export class LLMConfig {
     @Min(-2)
     @Max(2)
     presencePenalty?: number = 0;
+
+    @IsOptional()
+    @IsArray()
+    @IsString({ each: true })
+    tools?: string[]; // Array of tool IDs to make available in the LLM
+}
+export class ToolCall {
+    @IsString()
+    name: string;
+
+    @IsObject()
+    arguments: Record<string, any>;
+}
+export class ToolCallResult extends ToolCall {
+    @IsObject()
+    output: any;
 }
 
 export class Message {
@@ -68,7 +101,40 @@ export class Message {
     @IsOptional()
     @IsDateString()
     timestamp?: Date;
+
+    @IsOptional()
+    @ValidateNested()
+    @Type(() => ToolCall)
+    toolCall?: ToolCall;  // For messages that include tool calls
+
+    @IsOptional()
+    @IsString()
+    toolName?: string;    // For tool response messages
 }
+
+export class ToolMessage {
+    @IsEnum(['system', 'user', 'assistant', 'tool'])
+    role: 'system' | 'user' | 'assistant' | 'tool';
+
+    @IsString()
+    @Min(1)
+    @Max(32768)
+    content: string;
+
+    @IsOptional()
+    @IsDateString()
+    timestamp?: Date;
+
+    @IsOptional()
+    @ValidateNested()
+    @Type(() => ToolCall)
+    toolCall?: ToolCall;  // For messages that include tool calls
+
+    @IsOptional()
+    @IsString()
+    toolName?: string;    // For tool response messages
+}
+
 
 export class LLMRequest {
     @IsOptional()
@@ -95,7 +161,7 @@ export class LLMRequest {
     messageHistory?: Message[];
 
     @IsOptional()
-    responseFormat: any
+    reqHeaders?: any;
 }
 
 export interface LLMResponse {
@@ -108,4 +174,27 @@ export interface LLMResponse {
         totalTokens: number;
     };
     conversationId?: string;
+    toolCalls?: ToolCallResult[];
+    reqHeaders?: any;
+}
+
+// New interfaces for tool functionality
+export interface ToolDefinition {
+    name: string;
+    description: string;
+    parameters: {
+        type: 'object';
+        properties: Record<string, any>;
+        required?: string[];
+    };
+}
+
+
+
+
+export interface OpenAIFunctionDefinition {
+    name: string;
+    description: string;
+    parameters: any;
+    strict?: boolean;
 }

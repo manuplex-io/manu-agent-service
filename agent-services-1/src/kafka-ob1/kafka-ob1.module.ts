@@ -2,7 +2,7 @@ import { Module, Logger } from '@nestjs/common';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { KafkaOb1Controller } from './kafka-ob1.controller';
-import { LLMModule } from 'src/llm/llm.module';
+import { LLMModule } from 'src/llms/llms.module';
 import { KafkaOb1ProcessingService } from './services/kafka-ob1-processing/kafka-ob1-processing.service';
 
 @Module({

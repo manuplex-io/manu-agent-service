@@ -4,8 +4,8 @@ import { Controller, Post, Body, Param, Get } from '@nestjs/common';
 import { PythonLambdaService } from '../services/python-lambda.service';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
-import { OB1AgentTools } from 'src/entities/ob1-agent-tools.entity';
-import { OB1ToolExecutionLog } from 'src/entities/ob1-agent-toolExecutionLog.entity';
+import { OB1AgentTools } from 'src/tools/entities/ob1-agent-tools.entity';
+import { OB1ToolExecutionLog } from 'src/tools/entities/ob1-agent-toolExecutionLog.entity';
 
 @Controller('tool-testing')
 export class ToolTestingController {
@@ -62,9 +62,9 @@ export class ToolTestingController {
             await this.executionLogRepo.save(log);
 
             // Update tool statistics
-            tool.useCount += 1;
-            tool.avgExecutionTime = ((tool.avgExecutionTime * (tool.useCount - 1)) + executionTime) / tool.useCount;
-            tool.successRate = ((tool.successRate * (tool.useCount - 1)) + 1) / tool.useCount;
+            tool.toolUseCount += 1;
+            tool.avgExecutionTime = ((tool.avgExecutionTime * (tool.toolUseCount - 1)) + executionTime) / tool.toolUseCount;
+            tool.toolSuccessRate = ((tool.toolSuccessRate * (tool.toolUseCount - 1)) + 1) / tool.toolUseCount;
             await this.toolsRepo.save(tool);
 
             return {
@@ -86,9 +86,9 @@ export class ToolTestingController {
             await this.executionLogRepo.save(log);
 
             // Update tool statistics
-            tool.useCount += 1;
-            tool.avgExecutionTime = ((tool.avgExecutionTime * (tool.useCount - 1)) + executionTime) / tool.useCount;
-            tool.successRate = (tool.successRate * (tool.useCount - 1)) / tool.useCount;
+            tool.toolUseCount += 1;
+            tool.avgExecutionTime = ((tool.avgExecutionTime * (tool.toolUseCount - 1)) + executionTime) / tool.toolUseCount;
+            tool.toolSuccessRate = (tool.toolSuccessRate * (tool.toolUseCount - 1)) / tool.toolUseCount;
             await this.toolsRepo.save(tool);
 
             return {
