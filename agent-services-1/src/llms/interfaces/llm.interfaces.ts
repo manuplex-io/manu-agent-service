@@ -162,6 +162,9 @@ export class LLMRequest {
 
     @IsOptional()
     reqHeaders?: any;
+
+    @IsOptional()
+    responseFormat: any
 }
 
 export interface LLMResponse {
