@@ -18,7 +18,7 @@ export class KafkaOb1Controller implements OnModuleInit {
     // Add any initialization logic if necessary
   }
 
-  @MessagePattern('manuos-ob1-testService')
+  @MessagePattern('manuos-ob1-agentService')
   async handleSystemMessages(@Payload() message: OB1MessageValue, @Ctx() context: KafkaContext) {
     const messageKey = context.getMessage().key?.toString();
     // Cast headers from IHeaders to OB1MessageHeader by using 'unknown' first
