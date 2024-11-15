@@ -31,8 +31,8 @@ import { OB1PromptExecutionLog } from 'src/prompts/entities/ob1-agent-promptExec
         OB1AgentPrompts,
         OB1PromptExecutionLog,
       ], // Add the entities relevant to this DB
-      synchronize: true,
-      // synchronize: process.env.ENV === 'dev',  // Only synchronize in the 'dev' environment
+      // synchronize: true,
+      synchronize: process.env.ENV === 'dev',  // Only synchronize in the 'dev' environment
     }),
     TypeOrmModule.forFeature([
       OB1AgentTools,
