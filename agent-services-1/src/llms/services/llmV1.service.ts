@@ -138,6 +138,9 @@ export class LLMServiceV1 {
             top_p: request.config.topP,
             frequency_penalty: request.config.frequencyPenalty,
             presence_penalty: request.config.presencePenalty,
+            response_format: request.responseFormat
+                ? request.responseFormat
+                : { type: 'text' },
         });
 
         return {

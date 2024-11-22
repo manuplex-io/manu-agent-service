@@ -161,6 +161,9 @@ export class LLMRequestV1 {
     messageHistory?: MessageV1[];
 
     @IsOptional()
+    responseFormat?: any
+
+    @IsOptional()
     reqHeaders?: any;
 }
 
