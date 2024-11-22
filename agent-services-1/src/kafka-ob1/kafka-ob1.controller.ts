@@ -20,7 +20,7 @@ export class KafkaOb1Controller implements OnModuleInit {
     this.logger.log('Kafka consumer initialized and started');
   }
 
-  @MessagePattern('budyos-ob1-agentService')
+  @MessagePattern('manuos-ob1-agentService')
   async handleSystemMessages(
     @Payload() message: OB1AgentService.MessageIncomingValueV2,
     @Ctx() context: KafkaContext,
