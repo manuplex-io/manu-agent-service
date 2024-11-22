@@ -4,6 +4,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { KafkaOb1Controller } from './kafka-ob1.controller';
 import { LLMModule } from 'src/llms/llms.module';
 import { KafkaOb1ProcessingService } from './services/kafka-ob1-processing/kafka-ob1-processing.service';
+import { PromptCRUDV1 } from './services/kafka-ob1-processing/functions/promptCRUDV1.service';
 
 @Module({
   imports: [
@@ -18,7 +19,7 @@ import { KafkaOb1ProcessingService } from './services/kafka-ob1-processing/kafka
           options: {
             client: {
               clientId: `${configService.get<string>('SERVICE_ID')}-client`,
-              brokers: ['kafka-server-1.manuplex-uswest-2.local:9092'],
+              brokers: ['kafka-server-1.orangebox-uswest-2.local:9092'],
             },
             consumer: {
               groupId: `${configService.get<string>('SERVICE_NAME')}-group`,
@@ -32,6 +33,7 @@ import { KafkaOb1ProcessingService } from './services/kafka-ob1-processing/kafka
   ],
   providers: [
     KafkaOb1ProcessingService,
+    PromptCRUDV1,
   ],
   controllers: [KafkaOb1Controller],
 })

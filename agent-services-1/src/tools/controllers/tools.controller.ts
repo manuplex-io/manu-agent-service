@@ -14,7 +14,7 @@ import {
     HttpStatus,
     HttpException
 } from '@nestjs/common';
-import { ToolsManagementService } from '../services/tools-management.service';
+import { ToolsManagementV1Service } from '../services/toolsManagementV1.service';
 import {
     CreateToolDto,
     UpdateToolDto,
@@ -29,14 +29,14 @@ import {
 
 @Controller('tools')
 export class ToolsController {
-    constructor(private readonly toolsService: ToolsManagementService) { }
+    constructor(private readonly toolsV1Service: ToolsManagementV1Service) { }
 
     // Tool endpoints
     @Post()
     async createTool(
         @Body(new ValidationPipe({ transform: true })) createToolDto: CreateToolDto
     ) {
-        const response = await this.toolsService.createTool(createToolDto);
+        const response = await this.toolsV1Service.createTool(createToolDto);
         if (!response.success) {
             throw new HttpException(
                 response.error,
@@ -50,7 +50,7 @@ export class ToolsController {
     async getTools(
         @Query(new ValidationPipe({ transform: true })) params: ToolQueryParams
     ): Promise<PaginatedResponse<ToolResponseDto>> {
-        const response = await this.toolsService.getTools(params);
+        const response = await this.toolsV1Service.getTools(params);
         if (!response.success) {
             throw new HttpException(
                 response.error,
@@ -64,7 +64,7 @@ export class ToolsController {
     async getTool(
         @Param('id', ParseUUIDPipe) id: string
     ): Promise<ToolResponseDto> {
-        const response = await this.toolsService.getTool(id);
+        const response = await this.toolsV1Service.getTool(id);
         if (!response.success) {
             throw new HttpException(
                 response.error,
@@ -80,7 +80,7 @@ export class ToolsController {
     async getFullTool(
         @Param('id', ParseUUIDPipe) id: string
     ): Promise<ToolResponseDto> {
-        const response = await this.toolsService.getFullTool(id);
+        const response = await this.toolsV1Service.getFullTool(id);
         if (!response.success) {
             throw new HttpException(
                 response.error,
@@ -97,7 +97,7 @@ export class ToolsController {
         @Param('id', ParseUUIDPipe) id: string,
         @Body(new ValidationPipe({ transform: true })) updateToolDto: UpdateToolDto
     ): Promise<ToolUpdateResult> {
-        const response = await this.toolsService.updateTool(id, updateToolDto);
+        const response = await this.toolsV1Service.updateTool(id, updateToolDto);
         if (!response.success) {
             throw new HttpException(
                 response.error,
@@ -113,7 +113,7 @@ export class ToolsController {
     async deleteTool(
         @Param('id', ParseUUIDPipe) id: string
     ): Promise<void> {
-        const response = await this.toolsService.deleteTool(id);
+        const response = await this.toolsV1Service.deleteTool(id);
         if (!response.success) {
             throw new HttpException(
                 response.error,
@@ -129,7 +129,7 @@ export class ToolsController {
     async createCategory(
         @Body(new ValidationPipe()) createCategoryDto: CreateCategoryDto
     ) {
-        const response = await this.toolsService.createCategory(createCategoryDto);
+        const response = await this.toolsV1Service.createToolCategory(createCategoryDto);
         if (!response.success) {
             throw new HttpException(
                 response.error,
@@ -141,7 +141,7 @@ export class ToolsController {
 
     @Get('categories')
     async getCategories() {
-        const response = await this.toolsService.getCategories();
+        const response = await this.toolsV1Service.getToolCategories();
         if (!response.success) {
             throw new HttpException(
                 response.error,
@@ -156,7 +156,7 @@ export class ToolsController {
         @Param('id', ParseUUIDPipe) id: string,
         @Body(new ValidationPipe()) updateCategoryDto: UpdateCategoryDto
     ) {
-        const response = await this.toolsService.updateCategory(id, updateCategoryDto);
+        const response = await this.toolsV1Service.updateToolCategory(id, updateCategoryDto);
         if (!response.success) {
             throw new HttpException(
                 response.error,
@@ -172,7 +172,7 @@ export class ToolsController {
     async deleteCategory(
         @Param('id', ParseUUIDPipe) id: string
     ): Promise<void> {
-        const response = await this.toolsService.deleteCategory(id);
+        const response = await this.toolsV1Service.deleteToolCategory(id);
         if (!response.success) {
             throw new HttpException(
                 response.error,

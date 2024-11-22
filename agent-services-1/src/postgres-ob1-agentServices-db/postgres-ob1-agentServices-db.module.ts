@@ -11,6 +11,12 @@ import { OB1ToolExecutionLog } from 'src/tools/entities/ob1-agent-toolExecutionL
 import { OB1AgentPrompts } from 'src/prompts/entities/ob1-agent-prompts.entity';
 import { OB1PromptExecutionLog } from 'src/prompts/entities/ob1-agent-promptExecutionLog.entity';
 
+// workflows
+import { OB1AgentWorkflow } from '../workflows/entities/ob1-agent-workflow.entity';
+import { OB1AgentActivity } from '../workflows/entities/ob1-agent-activity.entity';
+import { OB1WorkflowExecution } from '../workflows/entities/ob1-agent-workflowExecution.entity';
+
+
 @Global() //no need to import this module in other modules
 @Module({
   imports: [
@@ -30,6 +36,9 @@ import { OB1PromptExecutionLog } from 'src/prompts/entities/ob1-agent-promptExec
         OB1ToolExecutionLog,
         OB1AgentPrompts,
         OB1PromptExecutionLog,
+        OB1AgentWorkflow,
+        OB1AgentActivity,
+        OB1WorkflowExecution,
       ], // Add the entities relevant to this DB
       // synchronize: true,
       synchronize: process.env.ENV === 'dev',  // Only synchronize in the 'dev' environment
@@ -40,6 +49,9 @@ import { OB1PromptExecutionLog } from 'src/prompts/entities/ob1-agent-promptExec
       OB1ToolExecutionLog,
       OB1AgentPrompts,
       OB1PromptExecutionLog,
+      OB1AgentWorkflow,
+      OB1AgentActivity,
+      OB1WorkflowExecution,
     ]), // Register the entities for repositories in your services
   ],
   exports: [TypeOrmModule],

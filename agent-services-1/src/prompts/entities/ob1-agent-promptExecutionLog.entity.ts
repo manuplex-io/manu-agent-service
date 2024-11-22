@@ -22,37 +22,43 @@ export class OB1PromptExecutionLog {
 
     @Column({
         type: 'jsonb',
-        comment: 'System Prompt Variables used in this execution'
+        comment: 'System Prompt Variables used in this execution',
+        nullable: true
     })
     systemVariables: Record<string, any>;
 
     @Column({
         type: 'jsonb',
-        comment: 'User Prompt Variables used in this execution'
+        comment: 'User Prompt Variables used in this execution',
+        nullable: true
     })
     userVariables: Record<string, any>;
 
     @Column({
         type: 'jsonb',
-        comment: 'LLM configuration used'
+        comment: 'LLM configuration used',
+        nullable: true
     })
     llmConfig: Record<string, any>;
 
     @Column({
         type: 'text',
-        comment: 'The final system prompt after variable interpolation'
+        comment: 'The final system prompt after variable interpolation',
+        nullable: true
     })
     processedSystemPrompt: string;
 
     @Column({
         type: 'text',
-        comment: 'The user prompt'
+        comment: 'The user prompt',
+        nullable: true
     })
     processedUserPrompt: string;
 
     @Column({
         type: 'text',
-        comment: 'The response from the LLM'
+        comment: 'The response from the LLM',
+        nullable: true
     })
     response: string;
 
@@ -69,13 +75,15 @@ export class OB1PromptExecutionLog {
 
     @Column({
         type: 'integer',
-        comment: 'Response time in milliseconds'
+        comment: 'Response time in milliseconds',
+        nullable: true
     })
     responseTime: number;
 
     @Column({
         type: 'jsonb',
-        comment: 'Token usage statistics'
+        comment: 'Token usage statistics',
+        nullable: true
     })
     tokenUsage: {
         promptTokens: number;
@@ -99,4 +107,20 @@ export class OB1PromptExecutionLog {
         comment: 'Error message if execution failed'
     })
     errorMessage?: string;
+
+    //tracing dictionary input
+    @Column({
+        type: 'jsonb',
+        nullable: true,
+        comment: 'Tracing input from the request'
+    })
+    tracing?: Record<string, any>;
+
+    //metadata dictionary input
+    @Column({
+        type: 'jsonb',
+        nullable: true,
+        comment: 'Metadata input from the request'
+    })
+    requestMetadata?: Record<string, any>;
 }

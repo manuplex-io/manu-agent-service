@@ -13,12 +13,12 @@ import * as path from 'path';
 import * as archiver from 'archiver';
 import { exec } from 'child_process';
 
-import { OB1AgentTools } from '../entities/ob1-agent-tools.entity';
+import { OB1AgentTools } from '../../entities/ob1-agent-tools.entity';
 
 @Injectable()
-export class PythonLambdaService {
+export class PythonLambdaV1Service {
     private readonly lambda: LambdaClient;
-    private readonly logger = new Logger(PythonLambdaService.name);
+    private readonly logger = new Logger(PythonLambdaV1Service.name);
 
     constructor(
         @InjectRepository(OB1AgentTools) private toolsRepo: Repository<OB1AgentTools>
@@ -56,7 +56,7 @@ export class PythonLambdaService {
 import json
 
 # Dynamically inserted Python code
-${script.code}
+${script.toolCode}
 
 def lambda_handler(event, context):
     try:
@@ -70,7 +70,7 @@ def lambda_handler(event, context):
 
         // Write requirements.txt
         const requirementsPath = path.join(tempDir, 'requirements.txt');
-        await fs.promises.writeFile(requirementsPath, script.requirements);
+        await fs.promises.writeFile(requirementsPath, script.toolPythonRequirements);
 
         // Install dependencies
         await new Promise((resolve, reject) => {
@@ -107,10 +107,10 @@ def lambda_handler(event, context):
         return zipPath;
     }
 
-    async checkFunctionExists(functionName: string): Promise<boolean> {
+    async checkFunctionExists(toolName: string): Promise<boolean> {
         try {
-            await this.lambda.send(new GetFunctionCommand({ FunctionName: functionName }));
-            this.logger.debug(`Function exists: ${functionName}`);
+            await this.lambda.send(new GetFunctionCommand({ FunctionName: toolName }));
+            this.logger.debug(`Function exists: ${toolName}`);
             return true;
         } catch (error) {
             if (error.name === 'ResourceNotFoundException') {
@@ -126,24 +126,24 @@ def lambda_handler(event, context):
             throw new Error('Tool not found in database');
         }
 
-        const functionName = `agentTool-python-${tool.toolId}`;
-        this.logger.debug(`Deploying function: ${functionName}`);
+        const toolName = `agentTool-python-${tool.toolId}`;
+        this.logger.debug(`Deploying function: ${toolName}`);
 
         const zipPath = await this.createZipFile(toolId);
         const zipContent = await fs.promises.readFile(zipPath);
 
         try {
-            const exists = await this.checkFunctionExists(functionName);
+            const exists = await this.checkFunctionExists(toolName);
             if (exists) {
-                this.logger.debug(`Updating existing function: ${functionName}`);
+                this.logger.debug(`Updating existing function: ${toolName}`);
                 await this.lambda.send(
-                    new UpdateFunctionCodeCommand({ FunctionName: functionName, ZipFile: zipContent })
+                    new UpdateFunctionCodeCommand({ FunctionName: toolName, ZipFile: zipContent })
                 );
             } else {
-                this.logger.debug(`Creating new function: ${functionName}`);
+                this.logger.debug(`Creating new function: ${toolName}`);
                 await this.lambda.send(
                     new CreateFunctionCommand({
-                        FunctionName: functionName,
+                        FunctionName: toolName,
                         Runtime: 'python3.12',
                         Role: process.env.LAMBDA_ROLE_ARN,
                         Handler: 'main.lambda_handler',
@@ -154,9 +154,9 @@ def lambda_handler(event, context):
                 );
             }
 
-            tool.functionIdentifier = functionName;
+            tool.toolIdentifier = toolName;
             await this.toolsRepo.save(tool);
-            return functionName;
+            return toolName;
         } catch (error) {
             this.logger.error(`Error deploying Lambda: ${error.message}`, error.stack);
             throw new Error(`Failed to deploy Lambda: ${error.message}`);
@@ -171,22 +171,22 @@ def lambda_handler(event, context):
             throw new Error('Tool not found');
         }
 
-        const functionName = `agentTool-python-${tool.toolId}`;
-        if (!await this.checkFunctionExists(functionName)) {
+        const toolName = `agentTool-python-${tool.toolId}`;
+        if (!await this.checkFunctionExists(toolName)) {
             await this.deployLambda(toolId);
         }
 
         //if the tool.toolCategory is equal to 'SALESFORCE' then we need to add the salesforce token to the input
         // if (tool.category.toolCategoryId === 'SALESFORCE') {
-        // input.sf_access_token = process.env.SALESFORCE_TOKEN;
-        // input.sf_instance_url = process.env.SALESFORCE_INSTANCE_URL;
-        // this.logger.debug(`Salesforce token added to input`);
+        input.sf_access_token = process.env.SALESFORCE_TOKEN;
+        input.sf_instance_url = process.env.SALESFORCE_INSTANCE_URL;
+        this.logger.debug(`Salesforce token added to input`);
         // }
 
         try {
             const response = await this.lambda.send(
                 new InvokeCommand({
-                    FunctionName: functionName,
+                    FunctionName: toolName,
                     Payload: Buffer.from(JSON.stringify({ input_variables: input })),
                 })
             );

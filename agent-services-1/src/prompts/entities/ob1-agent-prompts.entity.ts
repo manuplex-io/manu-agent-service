@@ -6,8 +6,8 @@ import {
     UpdateDateColumn
 } from 'typeorm';
 
-import { PromptStatus, PromptCategory } from '../interfaces/prompt.interfaces';
-import { LLMProvider, AnthropicModels, OpenAIModels, Tool } from '../../llms/interfaces/llm.interfaces';
+import { PromptStatus, PromptCategory, } from '../interfaces/prompt.interfaces';
+import { LLMProvider, AnthropicModels, OpenAIModels, ChatCompletionToolChoiceOption } from '../../llms/interfaces/llmV2.interfaces';
 
 @Entity('ob1_agent_prompts')
 export class OB1AgentPrompts {
@@ -103,11 +103,19 @@ export class OB1AgentPrompts {
     })
     promptAvailableTools: string[];
 
+    @Column({
+        type: 'text',
+        nullable: true,
+        default: 'auto',
+        comment: 'none or auto or required or the actual tool as per defination'
+    })
+    promptToolChoice: ChatCompletionToolChoiceOption;
+
     @CreateDateColumn()
-    createdAt: Date;
+    promptCreatedAt: Date;
 
     @UpdateDateColumn()
-    updatedAt: Date;
+    promptUpdatedAt: Date;
 
     @Column({
         type: 'integer',
@@ -115,6 +123,14 @@ export class OB1AgentPrompts {
         comment: 'Number of times this prompt has been executed'
     })
     promptExecutionCount: number;
+
+    @Column({
+        type: 'jsonb',
+        nullable: true,
+        comment: 'Schema definition for the expected output format, this will be enforced if specified',
+        default: {}
+    })
+    promptResponseFormat: Record<string, any>;
 
     @Column({
         type: 'float',

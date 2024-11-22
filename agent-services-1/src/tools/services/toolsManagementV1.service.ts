@@ -19,22 +19,22 @@ import {
 } from '../interfaces/tools.interface';
 
 @Injectable()
-export class ToolsManagementService {
+export class ToolsManagementV1Service {
     constructor(
         @InjectRepository(OB1AgentTools)
         private toolsRepository: Repository<OB1AgentTools>,
         @InjectRepository(OB1ToolCategory)
-        private categoryRepository: Repository<OB1ToolCategory>
+        private toolCategoryRepository: Repository<OB1ToolCategory>
     ) { }
 
     // Tool Methods
     async createTool(createToolDto: CreateToolDto): Promise<ServiceResponse<ToolResponseDto>> {
         try {
-            const category = createToolDto.categoryId
-                ? await this.categoryRepository.findOne({ where: { toolCategoryId: createToolDto.categoryId } })
+            const toolCategory = createToolDto.toolCategoryId
+                ? await this.toolCategoryRepository.findOne({ where: { toolCategoryId: createToolDto.toolCategoryId } })
                 : null;
 
-            if (createToolDto.categoryId && !category) {
+            if (createToolDto.toolCategoryId && !toolCategory) {
                 return {
                     success: false,
                     error: {
@@ -46,7 +46,7 @@ export class ToolsManagementService {
 
             const tool = this.toolsRepository.create({
                 ...createToolDto,
-                category,
+                toolCategory,
                 toolStatus: createToolDto.toolStatus || ToolStatus.TESTING
             });
 
@@ -69,22 +69,22 @@ export class ToolsManagementService {
 
     async getTools(params: ToolQueryParams): Promise<ServiceResponse<PaginatedResponse<ToolResponseDto>>> {
         try {
-            const { status, categoryId, tags, toolType, search, page = 1, limit = 10 } = params;
+            const { toolStatus, toolCategoryId, toolTags, toolType, search, page = 1, limit = 10 } = params;
 
             const queryBuilder = this.toolsRepository
                 .createQueryBuilder('tool')
-                .leftJoinAndSelect('tool.category', 'category');
+                .leftJoinAndSelect('tool.toolCategory', 'toolCategory');
 
-            if (status) {
-                queryBuilder.andWhere('tool.toolStatus = :status', { status });
+            if (toolStatus) {
+                queryBuilder.andWhere('tool.toolStatus = :toolStatus', { toolStatus });
             }
 
-            if (categoryId) {
-                queryBuilder.andWhere('category.toolCategoryId = :categoryId', { categoryId });
+            if (toolCategoryId) {
+                queryBuilder.andWhere('toolCategory.toolCategoryId = :toolCategoryId', { toolCategoryId });
             }
 
-            if (tags && tags.length > 0) {
-                queryBuilder.andWhere('tool.tags @> :tags', { tags });
+            if (toolTags && toolTags.length > 0) {
+                queryBuilder.andWhere('tool.toolTags @> :toolTags', { toolTags });
             }
 
             if (toolType) {
@@ -130,7 +130,7 @@ export class ToolsManagementService {
         try {
             const tool = await this.toolsRepository.findOne({
                 where: { toolId: id },
-                relations: ['category']
+                relations: ['toolCategory']
             });
 
             if (!tool) {
@@ -163,7 +163,7 @@ export class ToolsManagementService {
         try {
             const tool = await this.toolsRepository.findOne({
                 where: { toolId: id },
-                relations: ['category']
+                relations: ['toolCategory']
             });
 
             if (!tool) {
@@ -196,7 +196,7 @@ export class ToolsManagementService {
         try {
             const tool = await this.toolsRepository.findOne({
                 where: { toolId: id },
-                relations: ['category']
+                relations: ['toolCategory']
             });
 
             if (!tool) {
@@ -212,11 +212,11 @@ export class ToolsManagementService {
             const previousVersion = this.mapToToolResponse(tool);
             const changes: string[] = [];
 
-            if (updateToolDto.categoryId) {
-                const category = await this.categoryRepository.findOne({
-                    where: { toolCategoryId: updateToolDto.categoryId }
+            if (updateToolDto.toolCategoryId) {
+                const toolCategory = await this.toolCategoryRepository.findOne({
+                    where: { toolCategoryId: updateToolDto.toolCategoryId }
                 });
-                if (!category) {
+                if (!toolCategory) {
                     return {
                         success: false,
                         error: {
@@ -225,8 +225,8 @@ export class ToolsManagementService {
                         }
                     };
                 }
-                tool.category = category;
-                changes.push('category');
+                tool.toolCategory = toolCategory;
+                changes.push('toolCategory');
             }
 
             // Track changes
@@ -286,10 +286,10 @@ export class ToolsManagementService {
     }
 
     // Category Methods
-    async createCategory(createCategoryDto: CreateCategoryDto): Promise<ServiceResponse<OB1ToolCategory>> {
+    async createToolCategory(createCategoryDto: CreateCategoryDto): Promise<ServiceResponse<OB1ToolCategory>> {
         try {
-            const category = this.categoryRepository.create(createCategoryDto);
-            const savedCategory = await this.categoryRepository.save(category);
+            const toolCategory = this.toolCategoryRepository.create(createCategoryDto);
+            const savedCategory = await this.toolCategoryRepository.save(toolCategory);
             return {
                 success: true,
                 data: savedCategory
@@ -299,16 +299,16 @@ export class ToolsManagementService {
                 success: false,
                 error: {
                     code: 'CATEGORY_CREATION_FAILED',
-                    message: 'Failed to create category',
+                    message: 'Failed to create toolCategory',
                     details: { error: error.message }
                 }
             };
         }
     }
 
-    async getCategories(): Promise<ServiceResponse<OB1ToolCategory[]>> {
+    async getToolCategories(): Promise<ServiceResponse<OB1ToolCategory[]>> {
         try {
-            const categories = await this.categoryRepository.find();
+            const categories = await this.toolCategoryRepository.find();
             return {
                 success: true,
                 data: categories
@@ -325,13 +325,13 @@ export class ToolsManagementService {
         }
     }
 
-    async updateCategory(id: string, updateCategoryDto: UpdateCategoryDto): Promise<ServiceResponse<OB1ToolCategory>> {
+    async updateToolCategory(id: string, updateCategoryDto: UpdateCategoryDto): Promise<ServiceResponse<OB1ToolCategory>> {
         try {
-            const category = await this.categoryRepository.findOne({
+            const toolCategory = await this.toolCategoryRepository.findOne({
                 where: { toolCategoryId: id }
             });
 
-            if (!category) {
+            if (!toolCategory) {
                 return {
                     success: false,
                     error: {
@@ -341,8 +341,8 @@ export class ToolsManagementService {
                 };
             }
 
-            Object.assign(category, updateCategoryDto);
-            const updatedCategory = await this.categoryRepository.save(category);
+            Object.assign(toolCategory, updateCategoryDto);
+            const updatedCategory = await this.toolCategoryRepository.save(toolCategory);
 
             return {
                 success: true,
@@ -353,16 +353,16 @@ export class ToolsManagementService {
                 success: false,
                 error: {
                     code: 'CATEGORY_UPDATE_FAILED',
-                    message: 'Failed to update category',
+                    message: 'Failed to update toolCategory',
                     details: { error: error.message }
                 }
             };
         }
     }
 
-    async deleteCategory(id: string): Promise<ServiceResponse<void>> {
+    async deleteToolCategory(id: string): Promise<ServiceResponse<void>> {
         try {
-            const result = await this.categoryRepository.delete(id);
+            const result = await this.toolCategoryRepository.delete(id);
             if (result.affected === 0) {
                 return {
                     success: false,
@@ -379,7 +379,7 @@ export class ToolsManagementService {
                 success: false,
                 error: {
                     code: 'CATEGORY_DELETE_FAILED',
-                    message: 'Failed to delete category',
+                    message: 'Failed to delete toolCategory',
                     details: { error: error.message }
                 }
             };
@@ -394,12 +394,12 @@ export class ToolsManagementService {
             toolDescription: tool.toolDescription,
             toolType: tool.toolType,
             toolStatus: tool.toolStatus,
-            category: tool.category ? {
-                toolCategoryId: tool.category.toolCategoryId,
-                toolCategoryName: tool.category.toolCategoryName
+            toolCategory: tool.toolCategory ? {
+                toolCategoryId: tool.toolCategory.toolCategoryId,
+                toolCategoryName: tool.toolCategory.toolCategoryName
             } : undefined,
-            createdAt: tool.createdAt,
-            updatedAt: tool.updatedAt
+            toolCreatedAt: tool.toolCreatedAt,
+            toolUpdatedAt: tool.toolUpdatedAt
         };
     }
 

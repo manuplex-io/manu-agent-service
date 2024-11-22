@@ -54,21 +54,21 @@ export class OB1AgentTools {
     comment: 'Schema definition for the required input parameters',
     default: {}
   })
-  inputSchema: Record<string, any>;
+  toolInputSchema: Record<string, any>;
 
   @Column({
     type: 'jsonb',
     comment: 'Schema definition for the expected input parameters from environment variables or system',
     default: {}
   })
-  ENVinputSchema: Record<string, any>;
+  toolENVinputSchema: Record<string, any>;
 
   @Column({
     type: 'jsonb',
     comment: 'Schema definition for the expected output format',
     default: {}
   })
-  outputSchema: Record<string, any>;
+  toolOutputSchema: Record<string, any>;
 
   @Column({
     type: 'jsonb',
@@ -82,14 +82,14 @@ export class OB1AgentTools {
     nullable: true,
     comment: 'For Python scripts: the actual code'
   })
-  code?: string;
+  toolCode?: string;
 
   @Column({
     type: 'text',
     nullable: true,
     comment: 'For Python scripts: requirements.txt content'
   })
-  requirements?: string;
+  toolPythonRequirements?: string;
 
   @Column({
     type: 'varchar',
@@ -97,7 +97,7 @@ export class OB1AgentTools {
     nullable: true,
     comment: 'For Lambda functions: the function name or ARN'
   })
-  functionIdentifier?: string;
+  toolIdentifier?: string;
 
   @Column({
     type: 'integer',
@@ -111,7 +111,7 @@ export class OB1AgentTools {
     default: 0,
     comment: 'Average execution time in milliseconds'
   })
-  avgExecutionTime: number;
+  toolAvgExecutionTime: number;
 
   @Column({
     type: 'float',
@@ -128,7 +128,7 @@ export class OB1AgentTools {
     comment: 'Tags for categorizing and searching tools',
     default: []
   })
-  tags: string[];
+  toolTags: string[];
 
   @Column({
     type: 'integer',
@@ -138,28 +138,28 @@ export class OB1AgentTools {
   toolVersion: number;
 
   @ManyToOne(() => OB1ToolCategory, category => category.tools)
-  category: OB1ToolCategory;
+  toolCategory: OB1ToolCategory;
 
   @CreateDateColumn({
     type: 'timestamptz',
     default: () => 'CURRENT_TIMESTAMP',
     comment: 'Timestamp when the tool was created'
   })
-  createdAt: Date;
+  toolCreatedAt: Date;
 
   @UpdateDateColumn({
     type: 'timestamptz',
     default: () => 'CURRENT_TIMESTAMP',
     comment: 'Timestamp when the tool was last updated'
   })
-  updatedAt: Date;
+  toolUpdatedAt: Date;
 
   @VersionColumn({
     type: 'integer',
     default: 1,
     comment: 'Record version for optimistic locking'
   })
-  recordVersion: number;
+  toolRecordVersion: number;
 
   @Column({
     type: 'text',
@@ -167,14 +167,14 @@ export class OB1AgentTools {
     default: '{}',
     comment: 'List of agent IDs that are allowed to use this tool'
   })
-  allowedAgents: string[];
+  toolAllowedAgents: string[];
 
   @Column({
     type: 'jsonb',
     default: {},
     comment: 'Rate limiting and usage quota configuration'
   })
-  usageQuota: {
+  toolUsageQuota: {
     maxCallsPerMinute?: number;
     maxCallsPerHour?: number;
     maxCallsPerDay?: number;
@@ -186,12 +186,12 @@ export class OB1AgentTools {
     nullable: true,
     comment: 'Example usage and expected results'
   })
-  examples?: string;
+  toolExamples?: string;
 
   @Column({
     type: 'jsonb',
     default: {},
     comment: 'Additional metadata specific to the tool'
   })
-  metadata: Record<string, any>;
+  toolMetadata: Record<string, any>;
 }

@@ -1,52 +1,96 @@
-// src/kafka-ob1/services/kafka-ob1-processing/kafka-ob1-processing.service.ts
-import { Injectable, Logger, ValidationPipe, BadRequestException } from '@nestjs/common';
-import { OB1MessageValue, OB1MessageHeader } from 'src/kafka-ob1/interfaces/ob1-message.interfaces';
+import { Injectable, Logger, ValidationPipe, } from '@nestjs/common';
 import { KafkaContext } from '@nestjs/microservices';
-import { LLMRequest, LLMResponse } from 'src/llms/interfaces/llm.interfaces';
-import { LLMService } from 'src/llms/services/llm.service';
-
+import { OB1Global, OB1AgentService, generateDefaultErrorMessageResponseValue } from 'src/kafka-ob1/interfaces/ob1-message.interfaces';
+import { LLMRequestV1 } from 'src/llms/interfaces/llmV1.interfaces';
+import { LLMRequest } from 'src/llms/interfaces/llmV2.interfaces';
+import { CRUDFunctionInput, CRUDFunctionInputExtended } from 'src/kafka-ob1/interfaces/promptCRUD.interfaces';
+import { LLMServiceV1 } from 'src/llms/services/llmV1.service';
+import { LLMV2Service } from 'src/llms/services/llmV2.service';
+import { PromptCRUDV1 } from 'src/kafka-ob1/services/kafka-ob1-processing/functions/promptCRUDV1.service';
 
 @Injectable()
 export class KafkaOb1ProcessingService {
     private readonly logger = new Logger(KafkaOb1ProcessingService.name);
-    private validationPipe = new ValidationPipe({ transform: true, whitelist: true }); // Instantiates ValidationPipe
+    private readonly validationPipe = new ValidationPipe({ transform: true, whitelist: true });
+
     constructor(
-        private llmService: LLMService,
-
-
+        private llmServiceV1: LLMServiceV1,
+        private llmV2Service: LLMV2Service,
+        private promptCRUDV1: PromptCRUDV1,
     ) { }
 
-    async processRequest(message: OB1MessageValue, context: KafkaContext) {
-        const messageHeaders = context.getMessage().headers;
-        const userEmail = messageHeaders['userEmail'] as string;
+    async processRequest(message: OB1AgentService.MessageIncomingValueV2, context: KafkaContext) {
+        const OB1Headers = context.getMessage().headers as unknown as OB1Global.MessageHeaderV2;
 
-        try {
-            const functionName = message.messageContent.functionName;
-            let functionInput = message.messageContent.functionInput;
+        const functionName = message.messageContent.functionName;
+        let functionInput = message.messageContent.functionInput;
 
-            // Validate functionInput as LLMRequest
-            try {
-                functionInput = await this.validationPipe.transform(functionInput, { metatype: LLMRequest, type: 'body' });
-            } catch (validationError) {
-                this.logger.error(`Validation failed for functionInput: ${validationError.message}`, validationError.stack);
-                throw new BadRequestException('Invalid functionInput format');
+        switch (functionName) {
+            case 'LLMgenerateResponse-V1': {
+                const validatedInput = await this.validateInput(functionInput, LLMRequestV1, functionName) as LLMRequestV1;
+                return this.llmServiceV1.generateResponseV1(validatedInput);
             }
 
-            // Check if the function exists and call it
-            // Check if the function is CRUDUserfunction and handle accordingly
-            if (functionName === 'LLMgenerateResponse') {
-                return await this.llmService.generateResponse(functionInput);
+            case 'LLMgenerateResponse-V2': {
+                const validatedInput = await this.validateInput(functionInput, LLMRequest, functionName) as LLMRequest;
+                const inputWithTracing = this.addTracingMetadata(validatedInput, OB1Headers) as LLMRequest;
+                return this.llmV2Service.generateResponseWithStructuredOutputNoTools(inputWithTracing);
             }
-            else if (functionName === 'CRUDInstancesfunction') {
-                return { errorMessage: 'CRUDInstancesfunction not implemented' };
-            } else {
+
+            case 'promptCRUD-V1': {
+                const validatedInput = await this.validateInput(functionInput, CRUDFunctionInput, functionName) as CRUDFunctionInput;
+                const inputWithTracing = this.addTracingMetadata(validatedInput, OB1Headers) as CRUDFunctionInputExtended;
+                this.logger.log(`promptCRUD-V1: inputWithTracing:\n${JSON.stringify(inputWithTracing, null, 2)}`);
+                return this.promptCRUDV1.CRUDRoutes(inputWithTracing);
+            }
+
+
+            default:
                 this.logger.error(`Function ${functionName} not found`);
-                return { errorMessage: `Function ${functionName} not found` };
-            }
-        } catch (error) {
-            this.logger.error(`Error processing message for user with email ${userEmail}: ${error.message}`, error.stack);
-            throw new Error('Failed to process request');
+                return generateDefaultErrorMessageResponseValue(
+                    404,
+                    `Function ${functionName} not found`,
+                    { functionName, headers: OB1Headers },
+                );
         }
     }
+
+
+    /**
+     * Validates the function input using the provided metatype.
+     */
+    private async validateInput(input: any, metatype: any, functionName: string): Promise<any> {
+        try {
+            return await this.validationPipe.transform(input, { metatype, type: 'body' });
+        } catch (validationError) {
+            this.logger.error(`Validation failed for ${functionName}`, validationError);
+            return generateDefaultErrorMessageResponseValue(
+                400,
+                `Validation failed for ${functionName}`,
+                { details: validationError?.response?.message || 'Unknown validation error' },
+            );
+        }
+    }
+
+    /**
+     * Adds tracing and metadata information to the request.
+     */
+    private addTracingMetadata<T extends { tracing?: any; requestMetadata?: any }>(
+        input: T,
+        headers: OB1Global.MessageHeaderV2,
+    ): T & { tracing: { traceId: string }; requestMetadata: { personId: string; userOrgId: string; sourceService: string } } {
+        return {
+            ...input,
+            tracing: {
+                traceId: headers.requestId,
+            },
+            requestMetadata: {
+                personId: headers.personId,
+                userOrgId: headers.userOrgId,
+                sourceService: headers.sourceService,
+            },
+        };
+    }
+
 
 }

@@ -1,6 +1,15 @@
 import { IsString, IsObject, IsOptional, IsEnum, ValidateNested, IsArray, IsBoolean } from 'class-validator';
 import { Type } from 'class-transformer';
-import { LLMProvider, AnthropicModels, OpenAIModels } from '../../llms/interfaces/llm.interfaces';
+import {
+    LLMProvider,
+    AnthropicModels,
+    OpenAIModels,
+    promptTracing,
+    RequestMetadata,
+    ResponseFormatJSONSchema,
+
+} from '../../llms/interfaces/llmV2.interfaces';
+import { DynamicObjectValidator } from './DynamicObject.validator'
 
 
 export enum PromptStatus {
@@ -17,6 +26,10 @@ export enum PromptCategory {
     CUSTOM = 'CUSTOM',
     SALESFORCE = 'SALESFORCE',
 }
+
+
+
+
 
 // Custom decorator for validating variables structure
 function ValidateVariables() {
@@ -73,6 +86,10 @@ export class CreatePromptDto {
     @IsEnum(PromptCategory)
     promptCategory: PromptCategory;
 
+    @IsOptional()
+    @IsEnum(PromptStatus)
+    promptStatus?: PromptStatus = PromptStatus.DRAFT;
+
 
     @IsObject()
     @ValidateNested()
@@ -90,21 +107,41 @@ export class CreatePromptDto {
 
     @IsOptional()
     @IsObject()
-    @ValidateVariables()
-    systemPromptVariables: {
+    @DynamicObjectValidator({
+        message: 'systemPromptVariables must be an object with valid VariableDefinitionDto values.',
+    })
+    systemPromptVariables?: {
         [key: string]: VariableDefinitionDto;
     };
 
     @IsOptional()
     @IsObject()
-    @ValidateVariables()
+    @DynamicObjectValidator({
+        message: 'userPromptVariables must be an object with valid VariableDefinitionDto values.',
+    })
     userPromptVariables: {
         [key: string]: VariableDefinitionDto;
     };
 
+    //response_format
+    @IsOptional()
+    promptResponseFormat?: ResponseFormatJSONSchema;
+    //e.g
+    // response_format: {
+    //     "type": "json_schema",
+    //         "json_schema": {
+    //         "name": "standard_response_format",
+    //             "description": "standard format so output can be formatted consistently",
+    //                 "schema": {
+    //             "content": {
+    //                 "type": "string"
+    //             }
+    //         },
+    //         strict: true
+    //     }
+    // },
 
 }
-
 
 
 export class UpdatePromptDto extends CreatePromptDto {
@@ -113,24 +150,67 @@ export class UpdatePromptDto extends CreatePromptDto {
     promptStatus?: PromptStatus;
 }
 
-export class ExecutePromptDto {
+export class ExecutePromptwithUserPromptDto {
     @IsOptional()
     @IsString()
     userPrompt: string;
 
     @IsOptional()
     @IsObject()
-    userVariables?: Record<string, any>;
+    systemPromptVariables?: {
+        [key: string]: any;
+    };
+
+    //tracing
+    @Type(() => promptTracing)
+    tracing: promptTracing;
+    //metadata dictionary 
+
+    @Type(() => RequestMetadata)
+    requestMetadata: RequestMetadata;
 
     @IsOptional()
     @IsObject()
-    systemVariables?: Record<string, any>;
-
-    @IsOptional()
-    @IsObject()
-    llmConfig?: Record<string, any>;
+    llmConfig?: LLMConfigDto;
 }
 
+export class ExecutePromptWithUserPromptNoToolExec extends ExecutePromptwithUserPromptDto {
+    @IsString()
+    promptId: string;
+
+}
+
+export class ExecutePromptwithoutUserPromptDto {
+    @IsOptional()
+    @IsObject()
+    userPromptVariables: {
+        [key: string]: any;
+    };
+
+    @IsOptional()
+    @IsObject()
+    systemPromptVariables?: {
+        [key: string]: any;
+    };
+
+    //tracing
+    @Type(() => promptTracing)
+    tracing: promptTracing;
+
+    @Type(() => RequestMetadata)
+    requestMetadata: RequestMetadata;
+
+    @IsOptional()
+    @IsObject()
+    llmConfig?: LLMConfigDto;
+}
+
+export class ExecutePromptWithoutUserPromptNoToolExec extends ExecutePromptwithoutUserPromptDto {
+    @IsString()
+    promptId: string;
+
+
+}
 
 export class ListPromptsQueryDto {
     @IsOptional()

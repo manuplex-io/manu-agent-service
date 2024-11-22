@@ -1,7 +1,8 @@
 // src/tools/interfaces/tools.interface.ts
 
-import { IsString, IsEnum, IsObject, IsOptional, IsArray, IsNumber, IsUUID, Min, Max, ArrayMinSize, ValidateNested } from 'class-validator';
+import { IsString, IsEnum, IsObject, IsOptional, IsArray, IsNumber, IsUUID, Min, Max, ArrayMinSize, ValidateNested, IsBoolean } from 'class-validator';
 import { Type } from 'class-transformer';
+import { OB1AgentTools } from '../entities/ob1-agent-tools.entity';
 
 export enum ToolType {
     PYTHON_SCRIPT = 'python_script',
@@ -55,51 +56,51 @@ export class CreateToolDto {
     toolStatus?: ToolStatus;
 
     @IsObject()
-    inputSchema: Record<string, any>;
+    toolInputSchema: Record<string, any>;
 
     @IsObject()
-    outputSchema: Record<string, any>;
+    toolOutputSchema: Record<string, any>;
 
     @IsObject()
     toolConfig: Record<string, any>;
 
     @IsOptional()
     @IsString()
-    code?: string;
+    toolCode?: string;
 
     @IsOptional()
     @IsString()
-    requirements?: string;
+    toolPythonRequirements?: string;
 
     @IsOptional()
     @IsString()
-    functionIdentifier?: string;
+    toolIdentifier?: string;
 
     @IsArray()
     @IsString({ each: true })
-    tags: string[];
+    toolTags: string[];
 
     @IsOptional()
     @IsUUID()
-    categoryId?: string;
+    toolCategoryId?: string;
 
     @IsArray()
     @IsString({ each: true })
     @ArrayMinSize(0)
-    allowedAgents: string[];
+    toolAllowedAgents: string[];
 
     @IsOptional()
     @ValidateNested()
     @Type(() => UsageQuotaDto)
-    usageQuota?: UsageQuotaDto;
+    toolUsageQuota?: UsageQuotaDto;
 
     @IsOptional()
     @IsString()
-    examples?: string;
+    toolExamples?: string;
 
     @IsOptional()
     @IsObject()
-    metadata?: Record<string, any>;
+    toolMetadata?: Record<string, any>;
 }
 
 export class UpdateToolDto extends CreateToolDto {
@@ -140,12 +141,12 @@ export class ToolResponseDto {
     toolDescription: string;
     toolType: ToolType;
     toolStatus: ToolStatus;
-    category?: {
+    toolCategory?: {
         toolCategoryId: string;
         toolCategoryName: string;
     };
-    createdAt: Date;
-    updatedAt: Date;
+    toolCreatedAt: Date;
+    toolUpdatedAt: Date;
 }
 
 export interface ServiceResponse<T> {
@@ -161,9 +162,9 @@ export interface ServiceError {
 }
 
 export interface ToolQueryParams {
-    status?: ToolStatus;
-    categoryId?: string;
-    tags?: string[];
+    toolStatus?: ToolStatus;
+    toolCategoryId?: string;
+    toolTags?: string[];
     toolType?: ToolType;
     search?: string;
     page?: number;
@@ -180,9 +181,9 @@ export interface PaginatedResponse<T> {
 
 // Event interfaces for Kafka messages
 export interface ToolEvent {
-    eventType: ToolEventType;
+    toolEventType: ToolEventType;
     toolId?: string;
-    categoryId?: string;
+    toolCategoryId?: string;
     payload: CreateToolDto | UpdateToolDto | CreateCategoryDto | UpdateCategoryDto;
     userId: string;
     timestamp: Date;
@@ -201,4 +202,57 @@ export interface ToolUpdateResult {
     previousVersion: ToolResponseDto;
     updatedVersion: ToolResponseDto;
     changes: string[];
+}
+
+export class ToolRequest {
+
+    @IsString()
+    toolId: string;
+
+    @IsObject()
+    toolInput: any;
+
+    @IsString()
+    requestingServiceId: string;
+}
+
+export class ToolResponse {
+
+    @IsObject()
+    toolresult: any;
+
+    @IsBoolean()
+    toolSuccess: boolean;
+
+    @IsNumber()
+    toolExecutionTime: number;
+}
+
+export class ToolPythonRequest {
+
+    @IsObject()
+    tool: OB1AgentTools;
+
+    @IsObject()
+    toolInput: any;
+
+
+    @IsString()
+    requestingServiceId: string;
+}
+
+export class ToolPythonResponse {
+
+    @IsObject()
+    toolresult: any;
+
+    @IsBoolean()
+    toolSuccess: boolean;
+
+    @IsNumber()
+    toolExecutionTime: number;
+
+    @IsOptional()
+    toolError?: any;
+
 }

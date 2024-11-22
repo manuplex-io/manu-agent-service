@@ -14,23 +14,35 @@ import {
     BadRequestException
 } from '@nestjs/common';
 
-import { PromptService } from '../services/prompt.service';
+import { PromptV1Service } from '../services/promptV1.service';
 import { OB1AgentPrompts } from '../entities/ob1-agent-prompts.entity';
-import { LLMResponse, } from '../../llms/interfaces/llm.interfaces';
-import { CreatePromptDto, UpdatePromptDto, ListPromptsQueryDto, ExecutePromptDto, ExecutionLogsQueryDto } from '../interfaces/prompt.interfaces';
+import { LLMResponse, } from '../../llms/interfaces/llmV2.interfaces';
+import {
+    CreatePromptDto,
+    UpdatePromptDto,
+    ListPromptsQueryDto,
+    ExecutePromptwithoutUserPromptDto,
+    ExecutePromptwithUserPromptDto,
+    ExecutePromptWithUserPromptNoToolExec,
+    ExecutePromptWithoutUserPromptNoToolExec,
+    ExecutionLogsQueryDto
+} from '../interfaces/prompt.interfaces';
+import { trace } from 'console';
 
 
 
 
 @Controller('prompts')
 export class PromptController {
-    constructor(private readonly promptService: PromptService) { }
+    constructor(
+        private readonly promptV1Service: PromptV1Service
+    ) { }
 
     @Post()
     async createPrompt(
         @Body(new ValidationPipe({ transform: true })) createPromptDto: CreatePromptDto
     ): Promise<OB1AgentPrompts> {
-        return await this.promptService.createPrompt(createPromptDto);
+        return await this.promptV1Service.createPrompt(createPromptDto);
     }
 
     @Put(':promptId')
@@ -38,47 +50,63 @@ export class PromptController {
         @Param('promptId', ParseUUIDPipe) promptId: string,
         @Body(new ValidationPipe({ transform: true })) updatePromptDto: UpdatePromptDto
     ): Promise<OB1AgentPrompts> {
-        return await this.promptService.updatePrompt(promptId, updatePromptDto);
+        return await this.promptV1Service.updatePrompt(promptId, updatePromptDto);
     }
 
     @Get(':promptId')
     async getPrompt(
         @Param('promptId', ParseUUIDPipe) promptId: string
     ): Promise<OB1AgentPrompts> {
-        return await this.promptService.getPrompt(promptId);
+        return await this.promptV1Service.getPrompt(promptId);
     }
 
     @Get()
     async listPrompts(
         @Query(new ValidationPipe({ transform: true })) query: ListPromptsQueryDto
     ): Promise<OB1AgentPrompts[]> {
-        return await this.promptService.listPrompts(query);
+        return await this.promptV1Service.listPrompts(query);
     }
 
-    @Post(':promptId/execute')
+    @Post(':promptId/executewithUserPrompt')
     async executePrompt(
         @Param('promptId', ParseUUIDPipe) promptId: string,
-        @Body(new ValidationPipe({ transform: true })) executeDto: ExecutePromptDto
+        @Body(new ValidationPipe({ transform: true })) executeDto: ExecutePromptwithUserPromptDto
     ): Promise<LLMResponse> {
-        return await this.promptService.executePrompt(
+        const tracing = { "traceId": `PROMPT-CONTR-${Date.now()}` };
+        const requestMetadata = { "sourceFunction": "executePromptwithUserPrompt" };
+        const request: ExecutePromptWithUserPromptNoToolExec = {
             promptId,
-            executeDto.userPrompt,
-            executeDto.userVariables,
-            executeDto.systemVariables,
-            executeDto.llmConfig
+            userPrompt: executeDto.userPrompt,
+            systemPromptVariables: executeDto.systemPromptVariables,
+            llmConfig: executeDto.llmConfig,
+            tracing,
+            requestMetadata,
+        };
+
+        return await this.promptV1Service.executePromptWithUserPromptNoToolExec(
+            request
         );
     }
+
+
 
     @Post(':promptId/executewithoutUserPrompt')
     async executewithoutUserPrompt(
         @Param('promptId', ParseUUIDPipe) promptId: string,
-        @Body(new ValidationPipe({ transform: true })) executeDto: ExecutePromptDto
+        @Body(new ValidationPipe({ transform: true })) executeDto: ExecutePromptwithoutUserPromptDto
     ): Promise<LLMResponse> {
-        return await this.promptService.executewithoutUserPrompt(
+        const tracing = { "traceId": `PROMPT-CONTR-${Date.now()}` };
+        const requestMetadata = { "sourceFunction": "executePromptwithoutUserPrompt" };
+        const request: ExecutePromptWithoutUserPromptNoToolExec = {
             promptId,
-            executeDto.userVariables,
-            executeDto.systemVariables,
-            executeDto.llmConfig
+            userPromptVariables: executeDto.userPromptVariables,
+            systemPromptVariables: executeDto.systemPromptVariables,
+            llmConfig: executeDto.llmConfig,
+            tracing,
+            requestMetadata
+        };
+        return await this.promptV1Service.executePromptWithoutUserPromptNoToolExec(
+            request
         );
     }
 
@@ -87,6 +115,6 @@ export class PromptController {
         @Param('promptId', ParseUUIDPipe) promptId: string,
         @Query(new ValidationPipe({ transform: true })) query: ExecutionLogsQueryDto
     ) {
-        return await this.promptService.getExecutionLogs(promptId, query);
+        return await this.promptV1Service.getExecutionLogs(promptId, query);
     }
 }

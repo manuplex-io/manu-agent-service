@@ -20,6 +20,6 @@ export class OB1ToolCategory {
     })
     toolCategoryDescription: string;
 
-    @OneToMany(() => OB1AgentTools, tool => tool.category)
+    @OneToMany(() => OB1AgentTools, tool => tool.toolCategory)
     tools: OB1AgentTools[];
 }

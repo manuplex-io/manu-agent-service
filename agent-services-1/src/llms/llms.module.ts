@@ -1,15 +1,23 @@
 // src/llm/llm.module.ts
-import { Module, Logger, Global } from '@nestjs/common';
-import { LLMService } from './services/llm.service';
+import { Module, Global } from '@nestjs/common';
+import { LLMServiceV1 } from './services/llmV1.service';
+import { LLMV2Service } from './services/llmV2.service';
 import { LLMController } from './controllers/llm.controller';
-import { PythonLambdaService } from '../tools/services/python-lambda.service';
 
 @Global()
 @Module({
     imports: [
     ],
-    controllers: [LLMController],
-    providers: [LLMService, PythonLambdaService, Logger],
-    exports: [LLMService],
+    controllers: [
+        LLMController
+    ],
+    providers: [
+        LLMServiceV1,
+        LLMV2Service
+    ],
+    exports: [
+        LLMServiceV1,
+        LLMV2Service
+    ],
 })
 export class LLMModule { }

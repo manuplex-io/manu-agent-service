@@ -1,23 +1,23 @@
 import { IsString, IsNumber, IsEnum, IsOptional, Min, Max, IsArray, ValidateNested, IsDateString, IsUUID, Length, IsObject } from 'class-validator';
 import { Type } from 'class-transformer';
 
-export enum LLMProvider {
+export enum LLMProviderV1 {
     ANTHROPIC = 'anthropic',
     OPENAI = 'openai'
 }
 
-export enum AnthropicModels {
+export enum AnthropicModelsV1 {
     CLAUDE_3_OPUS = 'claude-3-opus-20240229',
     CLAUDE_3_SONNET = 'claude-3-sonnet-20240229',
     CLAUDE_3_HAIKU = 'claude-3-haiku-20240307'
 }
 
-export enum OpenAIModels {
+export enum OpenAIModelsV1 {
     GPT_4O_MINI = 'gpt-4o-mini',
     GPT_4O = 'gpt-4o',
 }
 
-export class Tool {
+export class ToolV1 {
     @IsString()
     toolId: string;
 
@@ -28,18 +28,18 @@ export class Tool {
     toolDescription: string;
 
     @IsOptional()
-    inputSchema: Record<string, any>;
+    toolInputSchema: Record<string, any>;
 
     @IsOptional()
-    outputSchema: Record<string, any>;
+    toolOutputSchema: Record<string, any>;
 }
 
-export class LLMConfig {
-    @IsEnum(LLMProvider)
-    provider: LLMProvider;
+export class LLMConfigV1 {
+    @IsEnum(LLMProviderV1)
+    provider: LLMProviderV1;
 
     @IsString()
-    @IsEnum({ ...AnthropicModels, ...OpenAIModels })
+    @IsEnum({ ...AnthropicModelsV1, ...OpenAIModelsV1 })
     model: string;
 
     @IsOptional()
@@ -77,19 +77,19 @@ export class LLMConfig {
     @IsString({ each: true })
     tools?: string[]; // Array of tool IDs to make available in the LLM
 }
-export class ToolCall {
+export class ToolCallV1 {
     @IsString()
     name: string;
 
     @IsObject()
     arguments: Record<string, any>;
 }
-export class ToolCallResult extends ToolCall {
+export class ToolCallResultV1 extends ToolCallV1 {
     @IsObject()
     output: any;
 }
 
-export class Message {
+export class MessageV1 {
     @IsEnum(['system', 'user', 'assistant'])
     role: 'system' | 'user' | 'assistant';
 
@@ -104,15 +104,15 @@ export class Message {
 
     @IsOptional()
     @ValidateNested()
-    @Type(() => ToolCall)
-    toolCall?: ToolCall;  // For messages that include tool calls
+    @Type(() => ToolCallV1)
+    toolCall?: ToolCallV1;  // For messages that include tool calls
 
     @IsOptional()
     @IsString()
     toolName?: string;    // For tool response messages
 }
 
-export class ToolMessage {
+export class ToolMessageV1 {
     @IsEnum(['system', 'user', 'assistant', 'tool'])
     role: 'system' | 'user' | 'assistant' | 'tool';
 
@@ -127,8 +127,8 @@ export class ToolMessage {
 
     @IsOptional()
     @ValidateNested()
-    @Type(() => ToolCall)
-    toolCall?: ToolCall;  // For messages that include tool calls
+    @Type(() => ToolCallV1)
+    toolCall?: ToolCallV1;  // For messages that include tool calls
 
     @IsOptional()
     @IsString()
@@ -136,7 +136,7 @@ export class ToolMessage {
 }
 
 
-export class LLMRequest {
+export class LLMRequestV1 {
     @IsOptional()
     @IsString()
     @Length(1, 4096)
@@ -147,8 +147,8 @@ export class LLMRequest {
     userPrompt: string;
 
     @ValidateNested()
-    @Type(() => LLMConfig)
-    config: LLMConfig;
+    @Type(() => LLMConfigV1)
+    config: LLMConfigV1;
 
     @IsOptional()
     @IsUUID()
@@ -157,32 +157,29 @@ export class LLMRequest {
     @IsOptional()
     @IsArray()
     @ValidateNested({ each: true })
-    @Type(() => Message)
-    messageHistory?: Message[];
+    @Type(() => MessageV1)
+    messageHistory?: MessageV1[];
 
     @IsOptional()
     reqHeaders?: any;
-
-    @IsOptional()
-    responseFormat?: any
 }
 
-export interface LLMResponse {
+export interface LLMResponseV1 {
     content: string;
     model: string;
-    provider: LLMProvider;
+    provider: LLMProviderV1;
     usage: {
         promptTokens: number;
         completionTokens: number;
         totalTokens: number;
     };
     conversationId?: string;
-    toolCalls?: ToolCallResult[];
+    toolCalls?: ToolCallResultV1[];
     reqHeaders?: any;
 }
 
 // New interfaces for tool functionality
-export interface ToolDefinition {
+export interface ToolDefinitionV1 {
     name: string;
     description: string;
     parameters: {
@@ -195,7 +192,7 @@ export interface ToolDefinition {
 
 
 
-export interface OpenAIFunctionDefinition {
+export interface OpenAIFunctionDefinitionV1 {
     name: string;
     description: string;
     parameters: any;
