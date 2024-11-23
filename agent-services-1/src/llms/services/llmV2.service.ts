@@ -139,6 +139,16 @@ export class LLMV2Service {
     //     };
     // }
 
+    private tryParseJSON(content: string): any {
+        try {
+            // Attempt to parse the string
+            return JSON.parse(content);
+        } catch (error) {
+            // Return the original content if parsing fails
+            return content;
+        }
+    }
+
     private async callOpenAIWithStructuredOutputNoTools(request: LLMRequest, messages: Message[]): Promise<LLMResponse> {
         const reqHeaders = {
             headers: createHeaders({
@@ -168,7 +178,7 @@ export class LLMV2Service {
 
 
         return {
-            content: response.choices[0].message.content || '',
+            content: this.tryParseJSON(response.choices[0].message.content || ''),
             model: response.model,
             provider: LLMProvider.OPENAI,
             usage: {
@@ -222,7 +232,7 @@ export class LLMV2Service {
 
 
         return {
-            content: response.choices[0].message.content || '',
+            content: this.tryParseJSON(response.choices[0].message.content || ''),
             model: response.model,
             provider: LLMProvider.OPENAI,
             usage: {

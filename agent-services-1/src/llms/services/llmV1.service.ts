@@ -102,6 +102,15 @@ export class LLMServiceV1 {
         return messages;
     }
 
+    private tryParseJSON(content: string): any {
+        try {
+            // Attempt to parse the string
+            return JSON.parse(content);
+        } catch (error) {
+            // Return the original content if parsing fails
+            return content;
+        }
+    }
     // private async callAnthropic(request: LLMRequestV1, messages: Message[]): Promise<LLMResponseV1> {
     //     const response = await this.anthropic.messages.create({
     //         model: request.config.model,
@@ -141,7 +150,7 @@ export class LLMServiceV1 {
         });
 
         return {
-            content: response.choices[0].message.content || '',
+            content: this.tryParseJSON(response.choices[0].message.content || ''),
             model: response.model,
             provider: LLMProviderV1.OPENAI,
             usage: {

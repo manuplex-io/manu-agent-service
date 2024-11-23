@@ -256,8 +256,6 @@ export class LLMRequest {
 
     //metadata dictionary 
     @IsOptional()
-    @ValidateNested()
-    @Type(() => RequestMetadata)
     requestMetadata?: RequestMetadata;
 
 }

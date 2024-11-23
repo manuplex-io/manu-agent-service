@@ -128,7 +128,6 @@ export class OB1AgentPrompts {
         type: 'jsonb',
         nullable: true,
         comment: 'Schema definition for the expected output format, this will be enforced if specified',
-        default: {}
     })
     promptResponseFormat: Record<string, any>;
 
