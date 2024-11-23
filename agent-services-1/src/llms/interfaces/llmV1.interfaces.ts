@@ -51,7 +51,7 @@ export class LLMConfigV1 {
     @IsOptional()
     @IsNumber()
     @Min(1)
-    @Max(4096)
+    @Max(16384)
     maxTokens?: number = 1000;
 
     @IsOptional()
