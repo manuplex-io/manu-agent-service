@@ -95,8 +95,7 @@ export class Message {
     role: 'system' | 'user' | 'assistant';
 
     @IsString()
-    @Min(1)
-    @Max(32768)
+    @Length(1, 32768)
     content: string;
 
     @IsOptional()
