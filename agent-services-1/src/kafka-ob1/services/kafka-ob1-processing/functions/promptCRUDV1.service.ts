@@ -155,7 +155,7 @@ export class PromptCRUDV1 {
                     );
             }
         } catch (error) {
-            this.logger.error(`Error processing CRUD operation`, error);
+            this.logger.error(`Error processing CRUD operation ${error}`);
 
             return generateDefaultErrorMessageResponseValue(
                 500,
