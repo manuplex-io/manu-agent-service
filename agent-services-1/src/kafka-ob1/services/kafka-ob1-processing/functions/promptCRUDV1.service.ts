@@ -123,7 +123,8 @@ export class PromptCRUDV1 {
                         systemPromptVariables: validatedBody.systemPromptVariables,
                         llmConfig: validatedBody.llmConfig,
                         tracing: tracing,
-                        requestMetadata: requestMetadata
+                        requestMetadata: requestMetadata,
+                        messageHistory:validatedBody.messageHistory
                     };
 
                     this.logger.log(`CRUDRoute.EXECUTE_WITHOUT_USER_PROMPT: request:\n${JSON.stringify(request, null, 2)}`);

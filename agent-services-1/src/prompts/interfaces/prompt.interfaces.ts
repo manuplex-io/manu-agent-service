@@ -7,6 +7,7 @@ import {
     promptTracing,
     RequestMetadata,
     ResponseFormatJSONSchema,
+    Message,
 
 } from '../../llms/interfaces/llmV2.interfaces';
 import { DynamicObjectValidator } from './DynamicObject.validator'
@@ -192,6 +193,12 @@ export class ExecutePromptwithoutUserPromptDto {
     systemPromptVariables?: {
         [key: string]: any;
     };
+
+    @IsOptional()
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => Message)
+    messageHistory?: Message[];
 
     //tracing
     @Type(() => promptTracing)

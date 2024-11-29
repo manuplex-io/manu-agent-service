@@ -294,7 +294,8 @@ export class PromptV1Service {
                 config: {
                     ...prompt.promptDefaultConfig,
                     ...promptRequest.llmConfig,
-                }
+                },
+                messageHistory:promptRequest.messageHistory,
             };
 
             // Conditionally add response_format
