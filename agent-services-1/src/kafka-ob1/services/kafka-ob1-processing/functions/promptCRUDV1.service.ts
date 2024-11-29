@@ -1,4 +1,4 @@
-import { Injectable, ValidationPipe, Logger } from '@nestjs/common';
+import { Injectable, ValidationPipe, Logger, BadRequestException } from '@nestjs/common';
 import { PromptV1Service } from '../../../../prompts/services/promptV1.service';
 import {
     CRUDFunctionInputExtended,
@@ -155,7 +155,12 @@ export class PromptCRUDV1 {
                     );
             }
         } catch (error) {
-            this.logger.error(`Error processing CRUD operation ${error}`);
+            if (error instanceof BadRequestException) {
+                const response = error.getResponse();
+                console.error('Validation Error Details:', JSON.stringify(response, null, 2))
+              } else {
+                console.error('Unexpected Error:', error);
+              }
 
             return generateDefaultErrorMessageResponseValue(
                 500,
