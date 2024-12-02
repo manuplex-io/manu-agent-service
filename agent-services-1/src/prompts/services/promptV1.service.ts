@@ -354,6 +354,104 @@ export class PromptV1Service {
             throw error;
         }
     }
+    
+    async executePromptWithoutUserPromptWithToolExec(
+        promptRequest: ExecutePromptWithoutUserPromptNoToolExec,
+    ): Promise<LLMResponse> {
+        const startTime = Date.now();
+        this.logger.log(`Inside executePromptWithoutUserPromptWithToolExec: ${JSON.stringify(promptRequest)}`);
+
+        try {
+            // Get the prompt
+            const prompt = await this.getPrompt(promptRequest.promptId);
+            if (prompt.promptStatus !== PromptStatus.ACTIVE) {
+                throw new BadRequestException(`Prompt is not active: ${promptRequest.promptId}`);
+            }
+
+            // Validate user and system variables
+            this.validateVariables(promptRequest.systemPromptVariables, prompt.systemPromptVariables, 'system');
+            this.validateVariables(promptRequest.userPromptVariables, prompt.userPromptVariables, 'user');
+
+            //this.logger.log(`Prompt 1: ${JSON.stringify(prompt)}`);
+            //this.logger.log(`executePromptWithoutUserPromptNoToolExec:: promptRequest:\n${JSON.stringify(promptRequest, null, 2)}`);
+            // Process the system prompt
+            const processedSystemPrompt = this.interpolateVariables(prompt.systemPrompt, promptRequest.systemPromptVariables);
+
+            // Process the user prompt
+            const processedUserPrompt = this.interpolateVariables(prompt.userPrompt, promptRequest.userPromptVariables);
+
+
+            // Prepare LLM request
+            const llmRequest: LLMRequest = {
+                systemPrompt: processedSystemPrompt,
+                userPrompt: processedUserPrompt,
+                tracing: promptRequest.tracing,
+                requestMetadata: promptRequest.requestMetadata,
+                config: {
+                    ...prompt.promptDefaultConfig,
+                    ...promptRequest.llmConfig,
+                    ...prompt.promptAvailableTools,
+                },
+                messageHistory:promptRequest.messageHistory,
+            };
+
+            // Conditionally add response_format
+            if (prompt.promptResponseFormat) {
+                llmRequest.response_format = prompt.promptResponseFormat as ResponseFormatJSONSchema;
+            }
+
+            this.logger.log(`LLM Request:\n${JSON.stringify(llmRequest, null, 2)}`);
+
+            // Execute the request
+            const response = await this.llmV2Service.generateWithTools(llmRequest);
+
+            // Log the execution
+            const executionTime = Date.now() - startTime;
+            await this.logExecution({
+                promptId: promptRequest.promptId,
+                systemVariables: promptRequest.systemPromptVariables,
+                userVariables: promptRequest.userPromptVariables,
+                llmConfig: llmRequest.config,
+                processedSystemPrompt,
+                processedUserPrompt,
+                response: response.content,
+                responseTime: executionTime,
+                tokenUsage: response.usage,
+                successful: true,
+                tracing: promptRequest.tracing,
+                requestMetadata: promptRequest.requestMetadata
+
+            });
+
+            // Update prompt statistics
+            await this.updatePromptStats(promptRequest.promptId, executionTime);
+
+            return response;
+
+        } catch (error) {
+            // Log failed execution
+            //this.logger.error(`Error in executePromptWithoutUserPromptNoToolExec: ${error.message}`, error.stack);
+            await this.logExecution({
+                promptId: promptRequest.promptId,
+                systemVariables: promptRequest.systemPromptVariables,
+                userVariables: promptRequest.userPromptVariables,
+                llmConfig: promptRequest.llmConfig || { "config": "NOT PROVIDED" },
+                processedSystemPrompt: '',
+                processedUserPrompt: '',
+                response: '',
+                responseTime: Date.now() - startTime,
+                tokenUsage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+                successful: false,
+                errorMessage: error.message,
+                tracing: promptRequest.tracing,
+                requestMetadata: promptRequest.requestMetadata
+
+            });
+
+            throw error;
+        }
+    }
+
     // @Post('generate-with-tools')
     // async generateWithTools(
     //     @Body(new ValidationPipe({ transform: true })) request: LLMRequest,

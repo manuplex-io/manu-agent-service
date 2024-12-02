@@ -12,6 +12,7 @@ import { validate } from 'class-validator';
 import { PORTKEY_GATEWAY_URL, createHeaders } from 'portkey-ai';
 import { zodResponseFormat } from 'openai/helpers/zod';
 import { z } from 'zod';
+import { Repository, FindOptionsWhere, Like } from 'typeorm';
 
 import {
   AnthropicModels,
@@ -26,6 +27,7 @@ import {
   ChatCompletionTool,
   ToolCallResult,
 } from '../interfaces/llmV2.interfaces';
+import { OB1AgentTools } from 'src/tools/entities/ob1-agent-tools.entity';
 
 @Injectable()
 export class LLMV2Service {
@@ -36,7 +38,10 @@ export class LLMV2Service {
     transform: true,
     whitelist: true,
   }); // Instantiates ValidationPipe
-  constructor() {
+  pythonLambdaService: any;
+  constructor(
+    @InjectRepository(OB1AgentTools) private toolsRepo: Repository<OB1AgentTools>,
+  ) {
     this.anthropic = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY,
     });
@@ -475,160 +480,167 @@ export class LLMV2Service {
     }
   }
 
-  // async generateFinalResponseWithToolResult(
-  //     request: LLMRequest,
-  //     tools: Tool[],
-  //     toolCall: ToolCallResult,
-  //     reqHeaders: any
-  // ): Promise<LLMResponse> {
-  //     const messages = this.constructMessages(request);
+  async generateFinalResponseWithToolResult(
+      request: LLMRequest,
+      tools: Tool[],
+      toolCall: ToolCallResult,
+      reqHeaders: any
+  ): Promise<LLMResponse> {
+      const messages = this.constructMessages(request);
 
-  //     // Add the function call and result to the message history
-  //     messages.push({
-  //         role: 'assistant',
-  //         content: '',
-  //         toolCall: {
-  //             name: toolCall.name,
-  //             arguments: toolCall.arguments
-  //         }
-  //     });
+      // Add the function call and result to the message history
+      messages.push({
+          role: 'assistant',
+          content: '',
+          toolCall: {
+              name: toolCall.name,
+              arguments: toolCall.arguments
+          }
+      });
 
-  //     messages.push({
-  //         role: 'system', // Assume the tool response is from the system
-  //         content: JSON.stringify(toolCall.output),
-  //         toolName: toolCall.name
-  //     });
+      messages.push({
+          role: 'system', // Assume the tool response is from the system
+          content: JSON.stringify(toolCall.output),
+          toolName: toolCall.name
+      });
 
-  //     // Convert tools to OpenAI function format
-  //     const functions = tools.map(tool => ({
-  //         name: tool.toolName,
-  //         description: tool.toolDescription,
-  //         parameters: tool.inputSchema,
-  //         // {
-  //         //     type: 'object',
-  //         //     properties: tool.inputSchema,
-  //         //     required: Object.keys(tool.inputSchema)
-  //         // }
-  //     }));
+      // Convert tools to OpenAI function format
+      const functions = tools.map(tool => ({
+          name: tool.toolName,
+          description: tool.toolDescription,
+          parameters: tool.inputSchema,
+          // {
+          //     type: 'object',
+          //     properties: tool.inputSchema,
+          //     required: Object.keys(tool.inputSchema)
+          // }
+      }));
 
-  //     // const requestOptions = {
-  //     //     method: 'get',
-  //     //     // traceId: "1729",
-  //     //     // spanId: "11",
-  //     //     // spanName: "LLM Call"
-  //     // }
+      // const requestOptions = {
+      //     method: 'get',
+      //     // traceId: "1729",
+      //     // spanId: "11",
+      //     // spanName: "LLM Call"
+      // }
 
-  //     // Get final response with function results
-  //     const completion = await this.openai.chat.completions.create({
-  //         model: request.config.model,
-  //         messages: this.convertToOpenAIMessages(messages),
-  //         functions,
-  //         temperature: request.config.temperature,
-  //         max_tokens: request.config.maxTokens,
-  //         top_p: request.config.topP,
-  //         frequency_penalty: request.config.frequencyPenalty,
-  //         presence_penalty: request.config.presencePenalty,
-  //     }, reqHeaders);
+      // Get final response with function results
+      const completion = await this.openai.chat.completions.create({
+          model: request.config.model,
+          messages: this.convertToOpenAIMessages(messages),
+          functions,
+          temperature: request.config.temperature,
+          max_tokens: request.config.maxTokens,
+          top_p: request.config.topP,
+          frequency_penalty: request.config.frequencyPenalty,
+          presence_penalty: request.config.presencePenalty,
+      }, reqHeaders);
 
-  //     return {
-  //         content: completion.choices[0].message.content || '',
-  //         model: completion.model,
-  //         provider: LLMProvider.OPENAI,
-  //         usage: {
-  //             promptTokens: completion.usage.prompt_tokens,
-  //             completionTokens: completion.usage.completion_tokens,
-  //             totalTokens: completion.usage.total_tokens,
-  //         },
-  //         conversationId: request.conversationId,
-  //         toolCalls: [toolCall]
-  //     };
-  // }
+      return {
+          content: completion.choices[0].message.content || '',
+          model: completion.model,
+          provider: LLMProvider.OPENAI,
+          usage: {
+              promptTokens: completion.usage.prompt_tokens,
+              completionTokens: completion.usage.completion_tokens,
+              totalTokens: completion.usage.total_tokens,
+          },
+          conversationId: request.conversationId,
+          toolCalls: [toolCall]
+      };
+  }
+  convertToOpenAIMessages(messages: Message[]) {
+    throw new Error('Method not implemented.');
+  }
 
-  // async generateWithTools(
-  //     request: LLMRequest,
-  // ): Promise<LLMResponse> {
-  //     // If no tools specified in config or non-OpenAI provider, use regular generation
-  //     if (!request.config.tools?.length || request.config.provider !== LLMProvider.OPENAI) {
-  //         return this.generateResponse(request);
-  //     }
+  async generateWithTools(
+      request: LLMRequest,
+  ): Promise<LLMResponse> {
+      // If no tools specified in config or non-OpenAI provider, use regular generation
+      if (!request.config.tools?.length || request.config.provider !== LLMProvider.OPENAI) {
+          return this.generateResponseWithStructuredOutputNoTools(request);
+      }
 
-  //     try {
-  //         // Fetch tool information
-  //         const toolsInfo = await this.toolsRepo.find({
-  //             where: request.config.tools.map(toolId => ({ toolId })),
-  //             select: [
-  //                 'toolId',
-  //                 'toolName',
-  //                 'toolDescription',
-  //                 'inputSchema',
-  //                 'outputSchema',
-  //                 'toolStatus',
-  //             ]
-  //         });
+      try {
+          // Fetch tool information
+          const toolsInfo = await this.toolsRepo.find({
+              where: request.config.tools.map(toolId => ({ toolId })),
+              select: [
+                  'toolId',
+                  'toolName',
+                  'toolDescription',
+                  'inputSchema',
+                  'outputSchema',
+                  'toolStatus',
+              ]
+          });
 
-  //         // Validate that all requested tools were found
-  //         if (toolsInfo.length !== request.config.tools.length) {
-  //             const foundToolIds = toolsInfo.map(tool => tool.toolId);
-  //             const missingTools = request.config.tools.filter(id => !foundToolIds.includes(id));
-  //             throw new NotFoundException(`Tools not found: ${missingTools.join(', ')}`);
-  //         }
+          // Validate that all requested tools were found
+          if (toolsInfo.length !== request.config.tools.length) {
+              const foundToolIds = toolsInfo.map(tool => tool.toolId);
+              const missingTools = request.config.tools.filter(id => !foundToolIds.includes(id));
+              throw new NotFoundException(`Tools not found: ${missingTools.join(', ')}`);
+          }
 
-  //         // Validate tool status
-  //         const unavailableTools = toolsInfo.filter(tool => tool.toolStatus !== 'active');
-  //         if (unavailableTools.length > 0) {
-  //             throw new BadRequestException(
-  //                 `Following tools are not available: ${unavailableTools.map(t => t.toolName).join(', ')}`
-  //             );
-  //         }
+          // Validate tool status
+          const unavailableTools = toolsInfo.filter(tool => tool.toolStatus !== 'active');
+          if (unavailableTools.length > 0) {
+              throw new BadRequestException(
+                  `Following tools are not available: ${unavailableTools.map(t => t.toolName).join(', ')}`
+              );
+          }
 
-  //         // Get initial response with potential tool calls
-  //         const response = await this.generateResponseWithTools(request, toolsInfo);
+          // Get initial response with potential tool calls
+          const response = await this.generateResponseWithTools(request, toolsInfo);
 
-  //         // If no tool was called, return the response as is
-  //         if (!response.toolCalls?.length) {
-  //             return response;
-  //         }
+          // If no tool was called, return the response as is
+          if (!response.toolCalls?.length) {
+              return response;
+          }
 
-  //         // Execute the tool call
-  //         const toolCall = response.toolCalls[0];
-  //         const tool = toolsInfo.find(t => t.toolName === toolCall.name);
+          // Execute the tool call
+          const toolCall = response.toolCalls[0];
+          const tool = toolsInfo.find(t => t.toolName === toolCall.name);
 
-  //         if (!tool) {
-  //             throw new NotFoundException(`Tool not found: ${toolCall.name}`);
-  //         }
+          if (!tool) {
+              throw new NotFoundException(`Tool not found: ${toolCall.name}`);
+          }
 
-  //         const reqHeaders = response.reqHeaders;
+          const reqHeaders = response.reqHeaders;
 
-  //         try {
-  //             // Execute the tool
-  //             const toolResult = await this.pythonLambdaService.invokeLambda(
-  //                 tool.toolId,
-  //                 toolCall.arguments
-  //             );
+          try {
+              // Execute the tool
+              const toolResult = await this.pythonLambdaService.invokeLambda(
+                  tool.toolId,
+                  toolCall.arguments
+              );
 
-  //             // Get final response incorporating the tool result
-  //             return await this.generateFinalResponseWithToolResult(
-  //                 request,
-  //                 toolsInfo,
-  //                 {
-  //                     ...toolCall,
-  //                     output: toolResult
-  //                 },
-  //                 reqHeaders
-  //             );
-  //         } catch (error) {
-  //             // Handle tool execution errors
-  //             this.logger.error(`Tool execution failed: ${error.message}`, error.stack);
-  //             throw new BadRequestException(`Tool execution failed: ${error.message}`);
-  //         }
-  //     } catch (error) {
-  //         // Rethrow validation and not found errors
-  //         if (error instanceof BadRequestException || error instanceof NotFoundException) {
-  //             throw error;
-  //         }
-  //         // Log and wrap other errors
-  //         this.logger.error(`Error in generate-with-tools: ${error.message}`, error.stack);
-  //         throw new BadRequestException(`Failed to process request: ${error.message}`);
-  //     }
-  // }
+              // Get final response incorporating the tool result
+              return await this.generateFinalResponseWithToolResult(
+                  request,
+                  toolsInfo,
+                  {
+                      ...toolCall,
+                      output: toolResult
+                  },
+                  reqHeaders
+              );
+          } catch (error) {
+              // Handle tool execution errors
+              this.logger.error(`Tool execution failed: ${error.message}`, error.stack);
+              throw new BadRequestException(`Tool execution failed: ${error.message}`);
+          }
+      } catch (error) {
+          // Rethrow validation and not found errors
+          if (error instanceof BadRequestException || error instanceof NotFoundException) {
+              throw error;
+          }
+          // Log and wrap other errors
+          this.logger.error(`Error in generate-with-tools: ${error.message}`, error.stack);
+          throw new BadRequestException(`Failed to process request: ${error.message}`);
+      }
+  }
 }
+function InjectRepository(OB1AgentTools: any): (target: typeof LLMV2Service, propertyKey: undefined, parameterIndex: 0) => void {
+  throw new Error('Function not implemented.');
+}
+
