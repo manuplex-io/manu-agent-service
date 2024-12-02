@@ -96,9 +96,9 @@ export class OB1AgentPrompts {
     };
 
     @Column({
-        type: 'text',
+        type: 'jsonb',
         array: true,
-        default: '{}',
+        default: [],
         comment: 'IDs of tools that should be available with this prompt'
     })
     promptAvailableTools: string[];
