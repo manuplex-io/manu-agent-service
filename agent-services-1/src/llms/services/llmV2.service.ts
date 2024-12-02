@@ -426,7 +426,7 @@ export class LLMV2Service {
       console.log('Response from LLM', response)
 
       const Response = response.choices[0].message;
-      console.log('Response from LLM post choice selection', response)
+      console.log('Response from LLM post choice selection', Response)
 
       // If no function was called, return the regular response
       if (!Response.tool_calls) {
@@ -610,6 +610,7 @@ export class LLMV2Service {
           }
 
           const reqHeaders = response.reqHeaders;
+          console.log('Tool arguments are', toolCall.arguments)
 
           try {
               // Execute the tool
