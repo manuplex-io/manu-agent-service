@@ -29,6 +29,7 @@ import {
 } from '../interfaces/llmV2.interfaces';
 import { OB1AgentTools } from 'src/tools/entities/ob1-agent-tools.entity';
 import { InjectRepository } from '@nestjs/typeorm';
+import { PythonLambdaV1Service } from 'src/tools/services/toolSpecificService/pythonLambdaV1.service';
 
 @Injectable()
 export class LLMV2Service {
@@ -39,8 +40,8 @@ export class LLMV2Service {
     transform: true,
     whitelist: true,
   }); // Instantiates ValidationPipe
-  pythonLambdaService: any;
   constructor(
+    private pythonLambdaV1Service:PythonLambdaV1Service,
     @InjectRepository(OB1AgentTools) private toolsRepo: Repository<OB1AgentTools>,
   ) {
     this.anthropic = new Anthropic({
@@ -614,7 +615,7 @@ export class LLMV2Service {
 
           try {
               // Execute the tool
-              const toolResult = await this.pythonLambdaService.invokeLambda(
+              const toolResult = await this.pythonLambdaV1Service.invokeLambda(
                   tool.toolId,
                   toolCall.arguments
               );
