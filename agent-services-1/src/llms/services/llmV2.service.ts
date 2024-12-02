@@ -445,7 +445,7 @@ export class LLMV2Service {
 
       // Handle tool call
       const toolCall = Response.tool_calls[0].function;
-      const tool = request.inputTools.find((t) => t.toolName === toolCall.name);
+      const tool = toolsInfo.find((t) => t.toolName === toolCall.name);
 
       if (!tool) {
         throw new Error(`Tool not found: ${toolCall.name}`);
