@@ -28,6 +28,7 @@ import {
   ToolCallResult,
 } from '../interfaces/llmV2.interfaces';
 import { OB1AgentTools } from 'src/tools/entities/ob1-agent-tools.entity';
+import { InjectRepository } from '@nestjs/typeorm';
 
 @Injectable()
 export class LLMV2Service {
@@ -641,8 +642,5 @@ export class LLMV2Service {
           throw new BadRequestException(`Failed to process request: ${error.message}`);
       }
   }
-}
-function InjectRepository(OB1AgentTools: any): (target: typeof LLMV2Service, propertyKey: undefined, parameterIndex: 0) => void {
-  throw new Error('Function not implemented.');
 }
 
