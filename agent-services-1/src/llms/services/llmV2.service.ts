@@ -381,7 +381,7 @@ export class LLMV2Service {
     }
   }
 
-  async generateResponseWithTools(request: LLMRequest): Promise<LLMResponse> {
+  async generateResponseWithTools(request: LLMRequest, toolsInfo: OB1AgentTools[]): Promise<LLMResponse> {
     if (request.config.provider !== LLMProvider.OPENAI) {
       throw new BadRequestException(
         'Tool integration is currently only supported with OpenAI',
@@ -391,7 +391,7 @@ export class LLMV2Service {
     try {
       const messages = this.constructMessages(request);
 
-      const inputTools = request.inputTools.map((tool) => ({
+      const inputTools = toolsInfo.map((tool) => ({
         function: {
           name: tool.toolName,
           description: tool.toolDescription,
@@ -421,8 +421,10 @@ export class LLMV2Service {
         },
         reqHeaders,
       );
+      console.log('Response from LLM', response)
 
       const Response = response.choices[0].message;
+      console.log('Response from LLM post choice selection', response)
 
       // If no function was called, return the regular response
       if (!Response.tool_calls) {
@@ -508,7 +510,7 @@ export class LLMV2Service {
       const functions = tools.map(tool => ({
           name: tool.toolName,
           description: tool.toolDescription,
-          parameters: tool.inputSchema,
+          parameters: tool.toolInputSchema,
           // {
           //     type: 'object',
           //     properties: tool.inputSchema,
@@ -526,7 +528,7 @@ export class LLMV2Service {
       // Get final response with function results
       const completion = await this.openai.chat.completions.create({
           model: request.config.model,
-          messages: this.convertToOpenAIMessages(messages),
+          messages: messages,
           functions,
           temperature: request.config.temperature,
           max_tokens: request.config.maxTokens,
@@ -568,8 +570,8 @@ export class LLMV2Service {
                   'toolId',
                   'toolName',
                   'toolDescription',
-                  'inputSchema',
-                  'outputSchema',
+                  'toolInputSchema',
+                  'toolOutputSchema',
                   'toolStatus',
               ]
           });

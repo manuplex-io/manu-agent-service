@@ -390,7 +390,7 @@ export class PromptV1Service {
                 config: {
                     ...prompt.promptDefaultConfig,
                     ...promptRequest.llmConfig,
-                    ...prompt.promptAvailableTools,
+                    tools: prompt.promptAvailableTools,
                 },
                 messageHistory:promptRequest.messageHistory,
             };
