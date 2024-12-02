@@ -50,7 +50,7 @@ export class PythonLambdaV1Service {
         const tempDir = await this.createTempDir();
         const tempDepsDir = path.join(tempDir, 'python'); // Dependencies folder
         await fs.promises.mkdir(tempDepsDir, { recursive: true });
-
+        console.log("directory created")
         // Write main.py
         const mainPyContent = `
 import json
@@ -67,11 +67,11 @@ def lambda_handler(event, context):
         return {'statusCode': 500, 'body': json.dumps({'error': str(e)})}
     `;
         await fs.promises.writeFile(path.join(tempDir, 'main.py'), mainPyContent);
-
+        console.log("file written main.py")
         // Write requirements.txt
         const requirementsPath = path.join(tempDir, 'requirements.txt');
         await fs.promises.writeFile(requirementsPath, script.toolPythonRequirements);
-
+        console.log("file written requirements.txt")
         // Install dependencies
         await new Promise((resolve, reject) => {
             exec(`pip3 install -r ${requirementsPath} -t ${tempDepsDir}`, (error, stdout, stderr) => {
@@ -88,7 +88,7 @@ def lambda_handler(event, context):
         const zipPath = path.join(tempDir, 'function.zip');
         const output = fs.createWriteStream(zipPath);
         const archive = archiver('zip', { zlib: { level: 9 } });
-
+        console.log("zipPath",zipPath)
         output.on('close', async () => {
             const { size } = await fs.promises.stat(zipPath);
             const sizeInMB = (size / (1024 * 1024)).toFixed(2);
