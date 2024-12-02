@@ -401,6 +401,7 @@ export class LLMV2Service {
         },
         type: 'function' as const, // explicitly set type as a literal
       }));
+      console.log('Input tools is', inputTools)
 
       const reqHeaders = {
         headers: createHeaders({ traceID: `AGENT-TRACE-${Date.now()}` }),
