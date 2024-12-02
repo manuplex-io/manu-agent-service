@@ -424,7 +424,6 @@ export class LLMV2Service {
         },
         reqHeaders,
       );
-      console.log('Response from LLM', response)
 
       const Response = response.choices[0].message;
       console.log('Response from LLM post choice selection', Response)
@@ -538,6 +537,7 @@ export class LLMV2Service {
           top_p: request.config.topP,
           frequency_penalty: request.config.frequencyPenalty,
           presence_penalty: request.config.presencePenalty,
+          response_format: request.response_format,
       }, reqHeaders);
 
       return {
