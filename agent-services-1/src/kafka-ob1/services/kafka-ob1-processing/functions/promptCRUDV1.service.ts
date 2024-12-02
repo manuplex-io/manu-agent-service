@@ -129,7 +129,7 @@ export class PromptCRUDV1 {
 
                     this.logger.log(`CRUDRoute.EXECUTE_WITHOUT_USER_PROMPT: request:\n${JSON.stringify(request, null, 2)}`);
 
-                    return await this.promptV1Service.executePromptWithoutUserPromptNoToolExec(request);
+                    return await this.promptV1Service.executePromptWithoutUserPromptWithToolExec(request);
                 }
 
                 case `${CRUDOperationName.GET}-${CRUDRoute.GET_EXECUTION_LOGS}`: {
