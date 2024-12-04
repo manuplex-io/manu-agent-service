@@ -139,7 +139,7 @@ export class ToolMessageV1 {
 export class LLMRequestV1 {
     @IsOptional()
     @IsString()
-    @Length(1, 4096)
+    @Length(1, 32768)
     systemPrompt?: string;
 
     @IsString()

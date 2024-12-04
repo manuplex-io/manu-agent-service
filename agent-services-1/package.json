@@ -1,6 +1,6 @@
 {
   "name": "agent-services-1",
-  "version": "0.0.15",
+  "version": "0.0.20",
   "description": "",
   "author": "",
   "private": true,
@@ -30,8 +30,9 @@
     "@nestjs/typeorm": "^10.0.2",
     "@temporalio/activity": "^1.11.3",
     "@temporalio/client": "^1.11.3",
+    "@temporalio/testing": "^1.11.5",
     "@temporalio/worker": "^1.11.3",
-    "@temporalio/workflow": "^1.11.3",
+    "@temporalio/workflow": "^1.11.5",
     "archiver": "^7.0.1",
     "axios": "^1.7.7",
     "class-transformer": "^0.5.1",

@@ -1,12 +1,17 @@
-import { Module } from '@nestjs/common';
-import { KafkaOb1Module } from './kafka-ob1/kafka-ob1.module';
+import { Module, Logger } from '@nestjs/common';
+import { KafkaOb1Module } from './aa-common/kafka-ob1/kafka-ob1.module';
+
+// common modules
 import { ConfigModule } from '@nestjs/config';
-import { PostgresOb1AgentServicesDbModule } from './postgres-ob1-agentServices-db/postgres-ob1-agentServices-db.module';
-import { ToolsModule } from './tools/tools.module';
+import { PostgresOb1AgentServicesDbModule } from './aa-common/postgres-ob1-agentServices-db/postgres-ob1-agentServices-db.module';
+
+// modules
+
 import { LLMModule } from './llms/llms.module';
-import { Logger } from '@nestjs/common';
 import { PromptModule } from './prompts/prompts.module';
-import { WORKFLOWSModule } from './workflows/workflows.module';
+import { ToolsModule } from './tools/tools.module';
+import { ActivityModule } from './activity/activity.module';
+import { WorkflowModule } from './workflows/workflows.module';
 
 @Module({
   imports: [
@@ -18,7 +23,8 @@ import { WORKFLOWSModule } from './workflows/workflows.module';
     ToolsModule,
     LLMModule,
     PromptModule,
-    WORKFLOWSModule,
+    ActivityModule,
+    WorkflowModule,
   ],
   controllers: [
 

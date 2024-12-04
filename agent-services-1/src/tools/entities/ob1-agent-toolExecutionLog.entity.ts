@@ -1,8 +1,9 @@
+// /src/tools/entities/ob1-agent-toolExecutionLog.entity.ts
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, ManyToOne } from 'typeorm';
 import { OB1AgentTools } from './ob1-agent-tools.entity';
 
 @Entity('ob1-agent-toolExecutionLogs')
-export class OB1ToolExecutionLog {
+export class OB1AgentToolExecutionLog {
     @PrimaryGeneratedColumn('uuid')
     toolExecutionLogId: string;
 

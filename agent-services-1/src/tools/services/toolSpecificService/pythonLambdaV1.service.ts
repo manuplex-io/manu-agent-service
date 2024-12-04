@@ -14,6 +14,9 @@ import * as archiver from 'archiver';
 import { exec } from 'child_process';
 
 import { OB1AgentTools } from '../../entities/ob1-agent-tools.entity';
+import { OB1AgentToolExecutionLog } from '../../entities/ob1-agent-toolExecutionLog.entity';
+
+import { OB1Tool } from '../../interfaces/tools.interface';
 
 @Injectable()
 export class PythonLambdaV1Service {
@@ -21,7 +24,8 @@ export class PythonLambdaV1Service {
     private readonly logger = new Logger(PythonLambdaV1Service.name);
 
     constructor(
-        @InjectRepository(OB1AgentTools) private toolsRepo: Repository<OB1AgentTools>
+        @InjectRepository(OB1AgentTools) private toolsRepo: Repository<OB1AgentTools>,
+        @InjectRepository(OB1AgentToolExecutionLog) private executionLogRepo: Repository<OB1AgentToolExecutionLog>,
     ) {
         this.lambda = new LambdaClient({
             region: process.env.AWS_REGION,
@@ -30,6 +34,17 @@ export class PythonLambdaV1Service {
                 secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
             }
         });
+    }
+
+    // Private method to parse JSON content
+    private tryParseJSON(content: string): any {
+        try {
+            // Attempt to parse the string
+            return JSON.parse(content);
+        } catch (error) {
+            // Return the original content if parsing fails
+            return content;
+        }
     }
 
     async createTempDir(): Promise<string> {
@@ -107,10 +122,10 @@ def lambda_handler(event, context):
         return zipPath;
     }
 
-    async checkFunctionExists(toolName: string): Promise<boolean> {
+    async checkFunctionExists(toolExternalName: string): Promise<boolean> {
         try {
-            await this.lambda.send(new GetFunctionCommand({ FunctionName: toolName }));
-            this.logger.debug(`Function exists: ${toolName}`);
+            await this.lambda.send(new GetFunctionCommand({ FunctionName: toolExternalName }));
+            this.logger.debug(`Function exists: ${toolExternalName}`);
             return true;
         } catch (error) {
             if (error.name === 'ResourceNotFoundException') {
@@ -126,37 +141,38 @@ def lambda_handler(event, context):
             throw new Error('Tool not found in database');
         }
 
-        const toolName = `agentTool-python-${tool.toolId}`;
-        this.logger.debug(`Deploying function: ${toolName}`);
+        const lambdaName = tool.toolExternalName;
+        this.logger.debug(`Deploying Lambda function: ${lambdaName}`);
 
         const zipPath = await this.createZipFile(toolId);
         const zipContent = await fs.promises.readFile(zipPath);
 
         try {
-            const exists = await this.checkFunctionExists(toolName);
+            const exists = await this.checkFunctionExists(lambdaName);
             if (exists) {
-                this.logger.debug(`Updating existing function: ${toolName}`);
-                await this.lambda.send(
-                    new UpdateFunctionCodeCommand({ FunctionName: toolName, ZipFile: zipContent })
-                );
+                this.logger.debug(`Lamda function already deployed: ${lambdaName}, updating staus to deployed`);
+                tool.toolStatus = OB1Tool.ToolStatus.DEPLOYED;
+                await this.toolsRepo.save(tool);
             } else {
-                this.logger.debug(`Creating new function: ${toolName}`);
+                this.logger.debug(`Creating new function: ${lambdaName}`);
                 await this.lambda.send(
                     new CreateFunctionCommand({
-                        FunctionName: toolName,
-                        Runtime: 'python3.12',
+                        FunctionName: lambdaName,
+                        Runtime: tool.toolConfig.toolRuntime || 'python3.12',
                         Role: process.env.LAMBDA_ROLE_ARN,
                         Handler: 'main.lambda_handler',
                         Code: { ZipFile: zipContent },
-                        Timeout: 30,
-                        MemorySize: 128,
+                        Timeout: tool.toolConfig.toolTimeout || 30,
+                        MemorySize: tool.toolConfig.toolMaxMemorySize || 128,
+                        Architectures: tool.toolConfig.toolArch ? [tool.toolConfig.toolArch] : ['arm64'],
                     })
                 );
             }
 
-            tool.toolIdentifier = toolName;
+            tool.toolStatus = OB1Tool.ToolStatus.DEPLOYED;
             await this.toolsRepo.save(tool);
-            return toolName;
+            this.logger.debug(`Lambda function deployed: ${lambdaName}`);
+            return lambdaName;
         } catch (error) {
             this.logger.error(`Error deploying Lambda: ${error.message}`, error.stack);
             throw new Error(`Failed to deploy Lambda: ${error.message}`);
@@ -199,6 +215,67 @@ def lambda_handler(event, context):
         } catch (error) {
             this.logger.error(`Error invoking Lambda: ${error.message}`, error.stack);
             throw new Error(`Failed to invoke Lambda: ${error.message}`);
+        }
+    }
+    async executePythonTool(toolPythonRequest: OB1Tool.ToolPythonRequest): Promise<OB1Tool.ToolPythonResponse> {
+        const tool = toolPythonRequest.tool;
+        const startTime = Date.now();
+
+
+        try {
+            // Execute the tool
+            const toolOutput = await this.invokeLambda(tool.toolId, toolPythonRequest.toolInput);
+
+            // Log the execution
+            const executionTime = Date.now() - startTime;
+            const log = this.executionLogRepo.create({
+                tool,
+                requestingServiceId: toolPythonRequest.requestingServiceId,
+                toolInput: toolPythonRequest.toolInput,
+                toolOutput,
+                toolSuccess: true,
+                toolExecutionTime: executionTime,
+            });
+            await this.executionLogRepo.save(log);
+
+            // Update tool statistics
+            tool.toolUseCount += 1;
+            tool.toolAvgExecutionTime = ((tool.toolAvgExecutionTime * (tool.toolUseCount - 1)) + executionTime) / tool.toolUseCount;
+            tool.toolSuccessRate = ((tool.toolSuccessRate * (tool.toolUseCount - 1)) + 1) / tool.toolUseCount;
+            await this.toolsRepo.save(tool);
+
+            return {
+                toolSuccess: true,
+                toolstatusCodeReturned: toolOutput.statusCode,
+                toolExecutionTime: executionTime,
+                toolResult: this.tryParseJSON(toolOutput.body),
+            };
+        } catch (error) {
+            // Log the failed execution
+            const executionTime = Date.now() - startTime;
+            const log = this.executionLogRepo.create({
+                tool,
+                requestingServiceId: toolPythonRequest.requestingServiceId,
+                toolInput: toolPythonRequest.toolInput,
+                toolOutput: error,
+                toolSuccess: false,
+                toolExecutionTime: executionTime,
+                toolErrorMessage: error.message,
+            });
+            await this.executionLogRepo.save(log);
+
+            // Update tool statistics
+            tool.toolUseCount += 1;
+            tool.toolAvgExecutionTime = ((tool.toolAvgExecutionTime * (tool.toolUseCount - 1)) + executionTime) / tool.toolUseCount;
+            tool.toolSuccessRate = (tool.toolSuccessRate * (tool.toolUseCount - 1)) / tool.toolUseCount;
+            await this.toolsRepo.save(tool);
+
+            return {
+                toolResult: error,
+                toolSuccess: false,
+                toolExecutionTime: executionTime,
+                toolError: error
+            };
         }
     }
 }

@@ -1,34 +1,23 @@
-// src/tools/services/tools-management.service.ts
+// src/tools/services/toolsManagementV1.service.ts
 
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindOptionsWhere, Like } from 'typeorm';
+import { Repository } from 'typeorm';
 import { OB1AgentTools } from '../entities/ob1-agent-tools.entity';
-import { OB1ToolCategory } from '../entities/ob1-agent-toolCategory.entity';
+import { OB1AgentToolCategory } from '../entities/ob1-agent-toolCategory.entity';
 import {
-    CreateToolDto,
-    UpdateToolDto,
-    CreateCategoryDto,
-    UpdateCategoryDto,
-    ToolResponseDto,
-    ServiceResponse,
-    ToolStatus,
-    ToolQueryParams,
-    PaginatedResponse,
-    ToolUpdateResult
+    OB1Tool
 } from '../interfaces/tools.interface';
 
 @Injectable()
 export class ToolsManagementV1Service {
     constructor(
-        @InjectRepository(OB1AgentTools)
-        private toolsRepository: Repository<OB1AgentTools>,
-        @InjectRepository(OB1ToolCategory)
-        private toolCategoryRepository: Repository<OB1ToolCategory>
+        @InjectRepository(OB1AgentTools) private toolsRepository: Repository<OB1AgentTools>,
+        @InjectRepository(OB1AgentToolCategory) private toolCategoryRepository: Repository<OB1AgentToolCategory>
     ) { }
 
     // Tool Methods
-    async createTool(createToolDto: CreateToolDto): Promise<ServiceResponse<ToolResponseDto>> {
+    async createTool(createToolDto: OB1Tool.CreateTool): Promise<OB1Tool.ServiceResponse<OB1Tool.ToolResponseDto>> {
         try {
             const toolCategory = createToolDto.toolCategoryId
                 ? await this.toolCategoryRepository.findOne({ where: { toolCategoryId: createToolDto.toolCategoryId } })
@@ -47,7 +36,9 @@ export class ToolsManagementV1Service {
             const tool = this.toolsRepository.create({
                 ...createToolDto,
                 toolCategory,
-                toolStatus: createToolDto.toolStatus || ToolStatus.TESTING
+                toolStatus: createToolDto.toolStatus || OB1Tool.ToolStatus.TESTING,
+                toolCreatedByConsultantOrgShortName: createToolDto.consultantOrgShortName,
+                toolCreatedByPersonId: createToolDto.personId
             });
 
             const savedTool = await this.toolsRepository.save(tool);
@@ -67,7 +58,7 @@ export class ToolsManagementV1Service {
         }
     }
 
-    async getTools(params: ToolQueryParams): Promise<ServiceResponse<PaginatedResponse<ToolResponseDto>>> {
+    async getTools(params: OB1Tool.ToolQueryParamsDto): Promise<OB1Tool.ServiceResponse<OB1Tool.PaginatedResponse<OB1Tool.ToolResponseDto>>> {
         try {
             const { toolStatus, toolCategoryId, toolTags, toolType, search, page = 1, limit = 10 } = params;
 
@@ -126,7 +117,7 @@ export class ToolsManagementV1Service {
         }
     }
 
-    async getTool(id: string): Promise<ServiceResponse<ToolResponseDto>> {
+    async getTool(id: string): Promise<OB1Tool.ServiceResponse<OB1Tool.ToolResponseDto>> {
         try {
             const tool = await this.toolsRepository.findOne({
                 where: { toolId: id },
@@ -159,7 +150,7 @@ export class ToolsManagementV1Service {
         }
     }
 
-    async getFullTool(id: string): Promise<ServiceResponse<ToolResponseDto>> {
+    async getFullTool(id: string): Promise<OB1Tool.ServiceResponse<OB1Tool.ToolResponseDto>> {
         try {
             const tool = await this.toolsRepository.findOne({
                 where: { toolId: id },
@@ -192,7 +183,7 @@ export class ToolsManagementV1Service {
         }
     }
 
-    async updateTool(id: string, updateToolDto: UpdateToolDto): Promise<ServiceResponse<ToolUpdateResult>> {
+    async updateTool(id: string, updateToolDto: OB1Tool.UpdateTool): Promise<OB1Tool.ServiceResponse<OB1Tool.ToolUpdateResult>> {
         try {
             const tool = await this.toolsRepository.findOne({
                 where: { toolId: id },
@@ -259,7 +250,7 @@ export class ToolsManagementV1Service {
         }
     }
 
-    async deleteTool(id: string): Promise<ServiceResponse<void>> {
+    async deleteTool(id: string): Promise<OB1Tool.ServiceResponse<void>> {
         try {
             const result = await this.toolsRepository.delete(id);
             if (result.affected === 0) {
@@ -285,109 +276,8 @@ export class ToolsManagementV1Service {
         }
     }
 
-    // Category Methods
-    async createToolCategory(createCategoryDto: CreateCategoryDto): Promise<ServiceResponse<OB1ToolCategory>> {
-        try {
-            const toolCategory = this.toolCategoryRepository.create(createCategoryDto);
-            const savedCategory = await this.toolCategoryRepository.save(toolCategory);
-            return {
-                success: true,
-                data: savedCategory
-            };
-        } catch (error) {
-            return {
-                success: false,
-                error: {
-                    code: 'CATEGORY_CREATION_FAILED',
-                    message: 'Failed to create toolCategory',
-                    details: { error: error.message }
-                }
-            };
-        }
-    }
-
-    async getToolCategories(): Promise<ServiceResponse<OB1ToolCategory[]>> {
-        try {
-            const categories = await this.toolCategoryRepository.find();
-            return {
-                success: true,
-                data: categories
-            };
-        } catch (error) {
-            return {
-                success: false,
-                error: {
-                    code: 'CATEGORY_FETCH_FAILED',
-                    message: 'Failed to fetch categories',
-                    details: { error: error.message }
-                }
-            };
-        }
-    }
-
-    async updateToolCategory(id: string, updateCategoryDto: UpdateCategoryDto): Promise<ServiceResponse<OB1ToolCategory>> {
-        try {
-            const toolCategory = await this.toolCategoryRepository.findOne({
-                where: { toolCategoryId: id }
-            });
-
-            if (!toolCategory) {
-                return {
-                    success: false,
-                    error: {
-                        code: 'CATEGORY_NOT_FOUND',
-                        message: `Category with ID ${id} not found`
-                    }
-                };
-            }
-
-            Object.assign(toolCategory, updateCategoryDto);
-            const updatedCategory = await this.toolCategoryRepository.save(toolCategory);
-
-            return {
-                success: true,
-                data: updatedCategory
-            };
-        } catch (error) {
-            return {
-                success: false,
-                error: {
-                    code: 'CATEGORY_UPDATE_FAILED',
-                    message: 'Failed to update toolCategory',
-                    details: { error: error.message }
-                }
-            };
-        }
-    }
-
-    async deleteToolCategory(id: string): Promise<ServiceResponse<void>> {
-        try {
-            const result = await this.toolCategoryRepository.delete(id);
-            if (result.affected === 0) {
-                return {
-                    success: false,
-                    error: {
-                        code: 'CATEGORY_NOT_FOUND',
-                        message: `Category with ID ${id} not found`
-                    }
-                };
-            }
-
-            return { success: true };
-        } catch (error) {
-            return {
-                success: false,
-                error: {
-                    code: 'CATEGORY_DELETE_FAILED',
-                    message: 'Failed to delete toolCategory',
-                    details: { error: error.message }
-                }
-            };
-        }
-    }
-
     // Helper Methods
-    private mapToToolResponse(tool: OB1AgentTools): ToolResponseDto {
+    private mapToToolResponse(tool: OB1AgentTools): OB1Tool.ToolResponseDto {
         return {
             toolId: tool.toolId,
             toolName: tool.toolName,

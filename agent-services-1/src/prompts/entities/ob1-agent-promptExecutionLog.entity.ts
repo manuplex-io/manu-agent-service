@@ -7,9 +7,10 @@ import {
     JoinColumn
 } from 'typeorm';
 import { OB1AgentPrompts } from './ob1-agent-prompts.entity';
+import { OB1Tool } from 'src/tools/interfaces/tools.interface';
 
-@Entity('ob1_agent_prompt_execution_logs')
-export class OB1PromptExecutionLog {
+@Entity('ob1-agent-promptExecutionLogs')
+export class OB1AgentPromptExecutionLog {
     @PrimaryGeneratedColumn("uuid")
     executionId: string;
 
@@ -67,11 +68,8 @@ export class OB1PromptExecutionLog {
         nullable: true,
         comment: 'Any tool calls made during execution'
     })
-    toolCalls: Array<{
-        name: string;
-        arguments: Record<string, any>;
-        output: any;
-    }>;
+    toolCalls: Array<OB1Tool.ToolCallLog>;
+
 
     @Column({
         type: 'integer',

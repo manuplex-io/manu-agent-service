@@ -1,21 +1,99 @@
 //src/entities/ob1-agent-tools.entity.ts
 import {
-  Entity,
-  Column,
-  PrimaryGeneratedColumn,
-  CreateDateColumn,
-  UpdateDateColumn,
-  VersionColumn,
-  ManyToOne,
-  Check
+  Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, Unique, BeforeInsert, BeforeUpdate, DataSource,
+  UpdateDateColumn, VersionColumn, ManyToOne, Check
 } from 'typeorm';
-import { OB1ToolCategory } from './ob1-agent-toolCategory.entity';
-import { ToolType, ToolStatus } from 'src/tools/interfaces/tools.interface';
+import { Logger } from '@nestjs/common';
+import { OB1AgentToolCategory } from './ob1-agent-toolCategory.entity';
+import { OB1Tool } from 'src/tools/interfaces/tools.interface';
+
 
 
 
 @Entity('ob1-agent-tools')
+@Unique(['toolCreatedByConsultantOrgShortName', 'toolCategory', 'toolName', 'toolVersion'])
 export class OB1AgentTools {
+  private readonly logger = new Logger(OB1AgentTools.name);
+
+  private static dataSource: DataSource;
+
+  @BeforeInsert()
+  @BeforeUpdate()
+  async validateCategoryConsistency() {
+    const category = await OB1AgentTools.dataSource
+      .getRepository(OB1AgentToolCategory)
+      .findOne({
+        where: {
+          toolCategoryId: this.toolCategory.toolCategoryId,
+        },
+      });
+
+    if (!category) {
+      throw new Error('Invalid tool category');
+    }
+
+    if (category.toolCategoryCreatedByConsultantOrgShortName !== this.toolCreatedByConsultantOrgShortName) {
+      throw new Error(
+        'The tool category does not belong to the same consultant organization as the tool.'
+      );
+    }
+  }
+
+  @BeforeInsert()
+  async prepareForInsert() {
+    const category = await OB1AgentTools.dataSource
+      .getRepository(OB1AgentToolCategory)
+      .findOne({
+        where: {
+          toolCategoryId: this.toolCategory.toolCategoryId,
+        },
+      });
+
+    if (!category) {
+      throw new Error('Invalid tool category');
+    }
+
+    // Calculate the tool version by checking the latest version
+    const latestTool = await OB1AgentTools.dataSource
+      .getRepository(OB1AgentTools)
+      .createQueryBuilder('tool')
+      .where(
+        'tool.toolName = :name AND tool.toolCategorytoolCategoryId = :categoryId AND tool.toolCreatedByConsultantOrgShortName = :org',
+        {
+          name: this.toolName,
+          categoryId: this.toolCategory.toolCategoryId,
+          org: this.toolCreatedByConsultantOrgShortName,
+        }
+      )
+      .orderBy('tool.toolVersion', 'DESC')
+      .getOne();
+
+    this.toolVersion = (latestTool?.toolVersion || 0) + 1;
+    //${this.toolCreatedByConsultantOrgShortName}_
+    // Generate toolExternalName
+    this.toolExternalName = `${category.toolCategoryName}_${this.toolName}_v${this.toolVersion}`
+      .toLowerCase() // Ensure all lowercase
+      .replace(/[^a-z0-9_]/g, '_'); // Replace invalid characters with underscores
+
+    // Validate the final toolExternalName
+    if (!/^[a-z][a-z0-9_]*$/.test(this.toolExternalName)) {
+      throw new Error(
+        `Generated toolExternalName "${this.toolExternalName}" does not conform to the required format`
+      );
+    }
+
+
+    // Use the calculated version to generate the toolExternalName
+    //this.toolExternalName = `${this.toolCreatedByConsultantOrgShortName}_${category.toolCategoryName}_${this.toolName}_${this.toolVersion}`;
+    this.logger.debug(`Generated New toolExternalName: ${this.toolExternalName}`);
+
+  }
+
+
+  static setDataSource(dataSource: DataSource) {
+    OB1AgentTools.dataSource = dataSource;
+  }
+
   @PrimaryGeneratedColumn("uuid", {
     comment: 'Auto-generated unique universal Id for the tool'
   })
@@ -23,10 +101,17 @@ export class OB1AgentTools {
 
   @Column({
     type: 'varchar',
-    length: 100,
-    comment: 'Human-readable name of the tool'
+    length: 32,
+    comment: 'Human-readable name of the tool in camelCase only'
   })
+  @Check(`"toolName" ~ '^[a-z][a-zA-Z0-9]*$'`)
   toolName: string;
+
+  @Column({
+    type: 'varchar',
+    comment: 'System-generated external name for the tool'
+  })
+  toolExternalName: string;
 
   @Column({
     type: 'text',
@@ -36,18 +121,18 @@ export class OB1AgentTools {
 
   @Column({
     type: 'enum',
-    enum: ToolType,
+    enum: OB1Tool.ToolType,
     comment: 'Type of tool (Python script, API endpoint, etc.)'
   })
-  toolType: ToolType;
+  toolType: OB1Tool.ToolType;
 
   @Column({
     type: 'enum',
-    enum: ToolStatus,
-    default: ToolStatus.TESTING,
+    enum: OB1Tool.ToolStatus,
+    default: OB1Tool.ToolStatus.TESTING,
     comment: 'Current status of the tool'
   })
-  toolStatus: ToolStatus;
+  toolStatus: OB1Tool.ToolStatus;
 
   @Column({
     type: 'jsonb',
@@ -91,13 +176,19 @@ export class OB1AgentTools {
   })
   toolPythonRequirements?: string;
 
+
   @Column({
     type: 'varchar',
-    length: 255,
-    nullable: true,
-    comment: 'For Lambda functions: the function name or ARN'
+    comment: 'Short name of the consultant organization that created the tool'
   })
-  toolIdentifier?: string;
+  @Check(`"toolCreatedByConsultantOrgShortName" ~ '^[a-z][a-zA-Z0-9]*$'`)
+  toolCreatedByConsultantOrgShortName: string;
+
+  @Column({
+    type: 'uuid',
+    comment: 'External person ID who created this tool',
+  })
+  toolCreatedByPersonId: string;
 
   @Column({
     type: 'integer',
@@ -137,8 +228,8 @@ export class OB1AgentTools {
   })
   toolVersion: number;
 
-  @ManyToOne(() => OB1ToolCategory, category => category.tools)
-  toolCategory: OB1ToolCategory;
+  @ManyToOne(() => OB1AgentToolCategory, category => category.tools)
+  toolCategory: OB1AgentToolCategory;
 
   @CreateDateColumn({
     type: 'timestamptz',
