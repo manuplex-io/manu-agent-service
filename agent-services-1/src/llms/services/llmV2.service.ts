@@ -67,9 +67,9 @@ export class LLMV2Service {
     }
 
     // Additional custom validations
-    if (request.messageHistory?.length > 10) {
+    if (request.messageHistory?.length > 30) {
       throw new BadRequestException(
-        'Message history cannot exceed 10 messages',
+        'Message history cannot exceed 30 messages',
       );
     }
 
