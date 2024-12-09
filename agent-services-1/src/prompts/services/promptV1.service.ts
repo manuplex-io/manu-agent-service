@@ -95,6 +95,9 @@ export class PromptV1Service {
 
         for (const [key, config] of Object.entries(promptVariables)) {
             // Check if required variable is missing
+            console.log("config",config)
+            console.log("key",key)
+            console.log("config.required",config.required)
             if (config.required && !variables.hasOwnProperty(key)) {
                 throw new BadRequestException(`Missing required ${variableType} prompt variable: ${key}`);
             }
