@@ -6,6 +6,7 @@ import { OB1Prompt } from '../interfaces/prompt.interface';
 import { OB1LLM } from '../../llms/interfaces/llmV2.interfaces';
 import { DynamicObjectValidator } from './DynamicObject.validator';
 
+
 export namespace OB1PromptDto {
 
     export class VariableDefinitionDto {
@@ -133,6 +134,10 @@ export namespace OB1PromptDto {
 
         @IsOptional()
         @IsObject()
+        toolInputENVVariables?: Record<string, any>;
+
+        @IsOptional()
+        @IsObject()
         systemPromptVariables?: {
             [key: string]: any;
         };
@@ -153,7 +158,7 @@ export namespace OB1PromptDto {
         @IsObject()
         llmConfig?: LLMConfigDto;
 
-        @IsObject()
+        @IsOptional()
         @IsObject()
         promptConfig?: Record<string, any>;
     }
@@ -174,37 +179,6 @@ export namespace OB1PromptDto {
 
     }
 
-    // export class ExecutePromptwithoutUserPromptDto {
-    //     @IsOptional()
-    //     @IsObject()
-    //     userPromptVariables: {
-    //         [key: string]: any;
-    //     };
-
-    //     @IsOptional()
-    //     @IsObject()
-    //     systemPromptVariables?: {
-    //         [key: string]: any;
-    //     };
-
-    //     //tracing
-    //     @Type(() => OB1LLM.promptTracing)
-    //     tracing: OB1LLM.promptTracing;
-
-    //     @Type(() => OB1LLM.RequestMetadata)
-    //     requestMetadata: OB1LLM.RequestMetadata;
-
-    //     @IsOptional()
-    //     @IsObject()
-    //     llmConfig?: LLMConfigDto;
-    // }
-
-    // export class ExecutePromptWithoutUserPromptNoToolExec extends ExecutePromptwithoutUserPromptDto {
-    //     @IsString()
-    //     promptId: string;
-
-
-    // }
 
     export class ListPromptsQueryDto {
         @IsOptional()
@@ -244,5 +218,34 @@ export namespace OB1PromptDto {
         @IsOptional()
         @Type(() => Number)
         offset?: number = 0;
+    }
+
+    export class CreateCategory {
+        @IsString()
+        promptCategoryName: string;
+
+        @IsString()
+        promptCategoryDescription: string;
+
+        @IsString()
+        consultantOrgShortName: string;
+
+        @IsUUID()
+        personId: string;
+    }
+    export class GetCategory {
+        @IsNotEmpty()
+        @IsString()
+        consultantOrgShortName: string;
+    }
+
+    export class UpdateCategory {
+        @IsString()
+        @IsOptional()
+        promptCategoryName?: string;
+
+        @IsString()
+        @IsOptional()
+        promptCategoryDescription?: string;
     }
 }

@@ -128,7 +128,11 @@ export namespace OB1ActivityDto {
         @IsString()
         consultantOrgShortName: string;
     }
-
+    export class GetCategoryDto {
+        @IsNotEmpty()
+        @IsString()
+        consultantOrgShortName: string;
+    }
     // DTO for Updating a Category
     export class UpdateCategoryDto {
         @IsOptional()

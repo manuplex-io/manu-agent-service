@@ -151,13 +151,14 @@ export class WorkflowManagementV1Service {
         params: OB1Workflow.WorkflowQueryParams,
     ): Promise<OB1Workflow.ServiceResponse<OB1Workflow.PaginatedResponse<OB1Workflow.WorkflowResponse>>> {
         try {
-            const { workflowCategoryId, search, page = 1, limit = 10 } = params;
+            const { consultantOrgShortName, workflowCategoryId, search, page = 1, limit = 10 } = params;
 
             const queryBuilder = this.workflowRepository
                 .createQueryBuilder('workflow')
                 .leftJoinAndSelect('workflow.workflowCategory', 'workflowCategory')
                 .leftJoinAndSelect('workflow.workflowActivities', 'workflowActivities')
-                .leftJoinAndSelect('workflowActivities.activity', 'activity');
+                .leftJoinAndSelect('workflowActivities.activity', 'activity')
+                .where('workflow.workflowCreatedByConsultantOrgShortName = :consultantOrgShortName', { consultantOrgShortName });
 
             if (workflowCategoryId) {
                 queryBuilder.andWhere('workflowCategory.workflowCategoryId = :workflowCategoryId', {

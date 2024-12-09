@@ -1,7 +1,8 @@
 //src/entities/ob1-agent-tools.entity.ts
 import {
   Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, Unique, BeforeInsert, BeforeUpdate, DataSource,
-  UpdateDateColumn, VersionColumn, ManyToOne, Check
+  UpdateDateColumn, VersionColumn, ManyToOne, Check,
+  JoinColumn
 } from 'typeorm';
 import { Logger } from '@nestjs/common';
 import { OB1AgentToolCategory } from './ob1-agent-toolCategory.entity';
@@ -18,7 +19,6 @@ export class OB1AgentTools {
   private static dataSource: DataSource;
 
   @BeforeInsert()
-  @BeforeUpdate()
   async validateCategoryConsistency() {
     const category = await OB1AgentTools.dataSource
       .getRepository(OB1AgentToolCategory)
@@ -58,7 +58,7 @@ export class OB1AgentTools {
       .getRepository(OB1AgentTools)
       .createQueryBuilder('tool')
       .where(
-        'tool.toolName = :name AND tool.toolCategorytoolCategoryId = :categoryId AND tool.toolCreatedByConsultantOrgShortName = :org',
+        'tool.toolName = :name AND tool.toolCategoryId = :categoryId AND tool.toolCreatedByConsultantOrgShortName = :org',
         {
           name: this.toolName,
           categoryId: this.toolCategory.toolCategoryId,
@@ -144,21 +144,21 @@ export class OB1AgentTools {
   @Column({
     type: 'jsonb',
     comment: 'Schema definition for the expected input parameters from environment variables or system',
-    default: {}
+    default: () => "'{}'"
   })
   toolENVinputSchema: Record<string, any>;
 
   @Column({
     type: 'jsonb',
     comment: 'Schema definition for the expected output format',
-    default: {}
+    default: () => "'{}'"
   })
   toolOutputSchema: Record<string, any>;
 
   @Column({
     type: 'jsonb',
     comment: 'Configuration specific to the tool type',
-    default: {}
+    default: () => "'{}'"
   })
   toolConfig: Record<string, any>;
 
@@ -228,7 +228,11 @@ export class OB1AgentTools {
   })
   toolVersion: number;
 
-  @ManyToOne(() => OB1AgentToolCategory, category => category.tools)
+  @ManyToOne(() => OB1AgentToolCategory, category => category.tools, {
+    onDelete: 'RESTRICT', // Prevent deletion of a category if it is referenced
+    onUpdate: 'CASCADE',
+  })
+  @JoinColumn({ name: 'toolCategoryId' }) // Explicitly set the foreign key column name
   toolCategory: OB1AgentToolCategory;
 
   @CreateDateColumn({

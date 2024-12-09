@@ -70,6 +70,7 @@ export namespace OB1Workflow {
     }
 
     export interface WorkflowQueryParams {
+        consultantOrgShortName: string;
         workflowCategoryId?: string;
         search?: string;
         page?: number;
@@ -107,6 +108,10 @@ export namespace OB1Workflow {
         workflowCategoryDescription: string;
         consultantOrgShortName: string;
         personId: string;
+    }
+
+    export interface GetCategory {
+        consultantOrgShortName: string;
     }
 
     export interface UpdateCategory {

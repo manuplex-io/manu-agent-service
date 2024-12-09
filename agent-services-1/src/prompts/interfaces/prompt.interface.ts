@@ -2,6 +2,7 @@ import { IsString, IsObject, IsOptional, IsEnum, ValidateNested, IsArray, IsBool
 import { Type } from 'class-transformer';
 import { OB1LLM } from '../../llms/interfaces/llmV2.interfaces';
 import { DynamicObjectValidator } from '../Dto/DynamicObject.validator'
+import { OB1AgentPrompts } from '../entities/ob1-agent-prompts.entity';
 
 
 export namespace OB1Prompt {
@@ -18,30 +19,49 @@ export namespace OB1Prompt {
         ARCHIVED = 'ARCHIVED'
     }
 
-    // export enum PromptCategory {
-    //     GENERAL = 'GENERAL',
-    //     ANALYSIS = 'ANALYSIS',
-    //     CODING = 'CODING',
-    //     WRITING = 'WRITING',
-    //     CUSTOM = 'CUSTOM',
-    //     SALESFORCE = 'SALESFORCE',
-    // }
+    export interface ExecutePromptGlobalBase {
 
+        prompt: OB1AgentPrompts;
+        systemPrompt: string;
+        userPrompt?: string;
+        availableTools?: Array<OB1LLM.InputTool>;
+        toolInputENVVariables?: Record<string, any>;
 
-    export interface ExecutePromptWithToolsBase {
         promptId: string;
         systemPromptVariables?: Record<string, any>;
+        userPromptVariables?: Record<string, any>;
 
         requestId: string;
         requestMetadata: Record<string, any>;
 
         llmConfig?: Partial<OB1LLM.LLMConfig>;
+        promptInputENV?: Record<string, any>;
         promptConfig?: {
             maxToolCalls?: number;
             maxLLMCalls?: number;
             toolTimeout?: number;
             maxTotalExecutionTime?: number;
         };
+
+    }
+
+    export interface ExecutePromptWithToolsBase {
+        promptId: string;
+        systemPromptVariables?: Record<string, any>;
+        toolInputENV?: Record<string, any>;
+
+        requestId: string;
+        requestMetadata: Record<string, any>;
+
+        llmConfig?: Partial<OB1LLM.LLMConfig>;
+        promptInputENV?: Record<string, any>;
+        promptConfig?: {
+            maxToolCalls?: number;
+            maxLLMCalls?: number;
+            toolTimeout?: number;
+            maxTotalExecutionTime?: number;
+        };
+
     }
 
     export interface ExecutePromptWithUserPrompt extends ExecutePromptWithToolsBase {
@@ -66,7 +86,7 @@ export namespace OB1Prompt {
         defaultValue?: any;
     }
 
-    export class LLMConfigDto {
+    export class LLMConfig {
         //@IsOptional()
         @IsString()
         provider: OB1LLM.LLMProvider;
@@ -107,8 +127,8 @@ export namespace OB1Prompt {
 
         @IsObject()
         @ValidateNested()
-        @Type(() => LLMConfigDto)
-        promptDefaultConfig: LLMConfigDto;
+        @Type(() => LLMConfig)
+        promptDefaultConfig: LLMConfig;
 
         // @IsOptional()
         // @IsArray()
@@ -167,77 +187,6 @@ export namespace OB1Prompt {
         promptStatus?: PromptStatus;
     }
 
-    // export class ExecutePromptwithUserPromptDto {
-
-    //     @IsString()
-    //     promptId: string;
-
-
-
-
-    //     @IsOptional()
-    //     @IsObject()
-    //     systemPromptVariables?: {
-    //         [key: string]: any;
-    //     };
-
-    //     @IsString()
-    //     requestId: string;
-
-    //     // //tracing
-    //     // @Type(() => OB1LLM.promptTracing)
-    //     // tracing: OB1LLM.promptTracing;
-    //     // //metadata dictionary 
-
-    //     @IsObject()
-    //     requestMetadata: {
-    //         [key: string]: any;
-    //     };
-
-    //     @IsOptional()
-    //     @IsObject()
-    //     llmConfig?: LLMConfigDto;
-    // }
-
-    // export class ExecutePromptWithUserPromptNoToolExec extends ExecutePromptwithUserPromptDto {
-    //     @IsString()
-    //     userPrompt: string;
-
-    // }
-
-    // export class ExecutePromptwithoutUserPromptDto {
-    //     @IsOptional()
-    //     @IsObject()
-    //     userPromptVariables: {
-    //         [key: string]: any;
-    //     };
-
-    //     @IsOptional()
-    //     @IsObject()
-    //     systemPromptVariables?: {
-    //         [key: string]: any;
-    //     };
-
-    //     //tracing
-    //     @Type(() => OB1LLM.promptTracing)
-    //     tracing: OB1LLM.promptTracing;
-
-    //     @IsObject()
-    //     requestMetadata: {
-    //         [key: string]: any;
-    //     };
-
-    //     @IsOptional()
-    //     @IsObject()
-    //     llmConfig?: LLMConfigDto;
-    // }
-
-    // export class ExecutePromptWithoutUserPromptNoToolExec extends ExecutePromptwithoutUserPromptDto {
-    //     @IsString()
-    //     promptId: string;
-
-
-    // }
 
     export class ListPromptsQueryDto {
         @IsOptional()
@@ -273,5 +222,117 @@ export namespace OB1Prompt {
         @IsOptional()
         @Type(() => Number)
         offset?: number = 0;
+    }
+    export class CreateCategory {
+        @IsString()
+        promptCategoryName: string;
+
+        @IsString()
+        promptCategoryDescription: string;
+
+        @IsString()
+        consultantOrgShortName: string;
+
+        @IsUUID()
+        personId: string;
+    }
+
+    export class GetCategory {
+        @IsString()
+        consultantOrgShortName: string;
+    }
+
+    export class UpdateCategory {
+        @IsString()
+        @IsOptional()
+        promptCategoryName?: string;
+
+        @IsString()
+        @IsOptional()
+        promptCategoryDescription?: string;
+    }
+
+    export interface CategoryResponse {
+        id: string;
+        name: string;
+        description: string;
+        promptCategoryCreatedByPersonId: string;
+        promptCategoryCreatedByConsultantOrgShortName: string;
+    }
+
+    export interface PromptResponse {
+        promptId: string;
+        promptName: string;
+        promptExternalName: string;
+        promptDescription: string;
+        promptCategory?: {
+            promptCategoryId: string;
+            promptCategoryName: string;
+            promptCategoryCreatedByConsultantOrgShortName: string;
+        };
+        promptStatus: OB1Prompt.PromptStatus;
+        promptVersion: number;
+        promptCreatedByConsultantOrgShortName: string;
+        promptCreatedByPersonId: string;
+        systemPrompt: string;
+        userPrompt?: string;
+        systemPromptVariables: Record<string, {
+            type: string;
+            description: string;
+            required: boolean;
+            defaultValue?: any;
+        }>;
+        userPromptVariables: Record<string, {
+            type: string;
+            description: string;
+            required: boolean;
+            defaultValue?: any;
+        }>;
+        promptDefaultConfig: {
+            provider: OB1LLM.LLMProvider;
+            model: OB1LLM.AnthropicModels | OB1LLM.OpenAIModels;
+            temperature?: number;
+            maxTokens?: number;
+            maxLLMCalls: number;
+            maxToolCalls: number;
+            maxTotalExecutionTime: number;
+            timeout: {
+                llmCall: number;
+                promptCall: number;
+            };
+            maxToolCallsPerType: Record<string, number>;
+        };
+        promptAvailableTools: string[];
+        promptToolChoice?: OB1LLM.ChatCompletionToolChoiceOption;
+        promptCreatedAt: Date;
+        promptUpdatedAt: Date;
+        promptExecutionCount: number;
+        promptResponseFormat?: OB1LLM.ResponseFormatJSONSchema;
+        promptAvgResponseTime: number;
+    }
+
+    export interface ServiceResponse<T> {
+        success: boolean;
+        data?: T;
+        error?: {
+            code: string;
+            message: string;
+            details?: any;
+        };
+    }
+    export interface PaginatedResponse<T> {
+        items: T[];
+        total: number;
+        page: number;
+        limit: number;
+        totalPages: number;
+    }
+    export interface WorkflowQueryParams {
+        consultantOrgShortName: string;
+        status?: PromptStatus;
+        category?: string;
+        search?: string;
+        page?: number;
+        limit?: number;
     }
 }

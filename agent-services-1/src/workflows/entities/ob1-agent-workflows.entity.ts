@@ -14,7 +14,7 @@ import {
     BeforeInsert,
     BeforeUpdate,
     DataSource,
-
+    JoinColumn,
 } from 'typeorm';
 import { OB1AgentWorkflowCategory } from './ob1-agent-workflowCategory.entity';
 import { OB1AgentWorkflowActivities } from './ob1-agent-workflowActivities.entity';
@@ -69,7 +69,7 @@ export class OB1AgentWorkflows {
             .getRepository(OB1AgentWorkflows)
             .createQueryBuilder('workflow')
             .where(
-                'workflow.workflowName = :name AND workflow.workflowCategoryWorkflowCategoryId = :categoryId AND workflow.workflowCreatedByConsultantOrgShortName = :org',
+                'workflow.workflowName = :name AND workflow.workflowCategoryId = :categoryId AND workflow.workflowCreatedByConsultantOrgShortName = :org',
                 {
                     name: this.workflowName,
                     categoryId: this.workflowCategory.workflowCategoryId,
@@ -187,6 +187,7 @@ export class OB1AgentWorkflows {
         onDelete: 'RESTRICT', // Prevent deletion of a category if it is referenced
         onUpdate: 'CASCADE',
     })
+    @JoinColumn({ name: 'workflowCategoryId' }) // Explicitly set the foreign key column name
     workflowCategory: OB1AgentWorkflowCategory;
 
     @Column({

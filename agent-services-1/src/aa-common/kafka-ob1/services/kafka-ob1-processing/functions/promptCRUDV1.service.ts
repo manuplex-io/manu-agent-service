@@ -1,6 +1,7 @@
 import { Injectable, ValidationPipe, Logger, BadRequestException } from '@nestjs/common';
 import { PromptManagementV1Service } from '../../../../../prompts/services/promptManagementV1.service';
 import { PromptExecutionV1Service } from '../../../../../prompts/services/promptExecutionV1.service';
+import { PromptCategoryManagementV1Service } from '../../../../../prompts/services/promptCategoryManagementV1.service';
 import {
     CRUDFunctionInputExtended,
     CRUDOperationName,
@@ -8,6 +9,8 @@ import {
 } from '../../../interfaces/CRUD.interfaces';
 
 import { OB1PromptDto } from 'src/prompts/Dto/prompts.Dto';
+
+import { PersonPayload } from 'src/aa-common/kafka-ob1/interfaces/personPayload.interface';
 
 @Injectable()
 export class PromptCRUDV1 {
@@ -17,6 +20,7 @@ export class PromptCRUDV1 {
     constructor(
         private readonly promptManagementV1Service: PromptManagementV1Service,
         private readonly promptExecutionV1Service: PromptExecutionV1Service,
+        private readonly promptCategoryManagementV1Service: PromptCategoryManagementV1Service,
     ) {
         this.validationPipe = new ValidationPipe({ transform: true, whitelist: true });
     }
@@ -26,13 +30,28 @@ export class PromptCRUDV1 {
 
             const { CRUDOperationName: operation, CRUDRoute: route, CRUDBody, routeParams, queryParams, requestId, requestMetadata } = functionInput;
 
+            // retrieve consultantPayload as PersonPayload from the CRUDBody
+            const consultantPayload = CRUDBody?.consultantPayload as PersonPayload;
+
+            // add the contents of the consultantPayload to the CRUDBody
+            const CRUDBodyWithConsultantPayload = {
+                ...CRUDBody,
+                consultantOrgShortName: consultantPayload?.consultantOrgShortName,
+                personId: consultantPayload?.personId,
+            };
+
+
             switch (`${operation}-${route}`) {
                 case `${CRUDOperationName.GET}-${CRUDPromptRoute.LIST_PROMPTS}`: {
+                    const updatedQueryParams = {
+                        ...queryParams, consultantOrgShortName: consultantPayload?.consultantOrgShortName,
+                        personId: consultantPayload?.personId,
+                    };
                     const validatedQuery = await this.validationPipe.transform(
-                        queryParams,
+                        updatedQueryParams,
                         { metatype: OB1PromptDto.ListPromptsQueryDto, type: 'query' }
                     );
-                    return await this.promptManagementV1Service.listPrompts(validatedQuery);
+                    return await this.promptManagementV1Service.getPrompts(validatedQuery);
                 }
 
                 case `${CRUDOperationName.GET}-${CRUDPromptRoute.GET_PROMPT}`: {
@@ -47,7 +66,7 @@ export class PromptCRUDV1 {
 
                 case `${CRUDOperationName.POST}-${CRUDPromptRoute.CREATE_PROMPT}`: {
                     const validatedBody = await this.validationPipe.transform(
-                        CRUDBody,
+                        CRUDBodyWithConsultantPayload,
                         { metatype: OB1PromptDto.CreatePromptDto, type: 'body' }
                     );
                     return await this.promptManagementV1Service.createPrompt(validatedBody);
@@ -56,7 +75,7 @@ export class PromptCRUDV1 {
                 case `${CRUDOperationName.PUT}-${CRUDPromptRoute.UPDATE_PROMPT}`: {
 
                     const validatedBody = await this.validationPipe.transform(
-                        CRUDBody,
+                        CRUDBodyWithConsultantPayload,
                         { metatype: OB1PromptDto.UpdatePromptDto, type: 'body' }
                     );
                     return await this.promptManagementV1Service.updatePrompt(routeParams.promptId, validatedBody);
@@ -80,6 +99,7 @@ export class PromptCRUDV1 {
                     }
                     const newCRUDBody = {
                         ...CRUDBody,
+                        ...routeParams,
                         requestId: requestId,
                         requestMetadata: requestMetadata
                     };
@@ -97,7 +117,7 @@ export class PromptCRUDV1 {
                     //     requestId: validatedBody.requestId,
                     //     requestMetadata: requestMetadata
                     // };
-                    return await this.promptExecutionV1Service.executePromptWithUserPromptNoToolExec(validatedBody);
+                    return await this.promptExecutionV1Service.executePromptWithUserPromptWithTools(validatedBody);
                 }
 
                 case `${CRUDOperationName.POST}-${CRUDPromptRoute.EXECUTE_WITHOUT_USER_PROMPT}`: {
@@ -109,6 +129,7 @@ export class PromptCRUDV1 {
                     }
                     const newCRUDBody = {
                         ...CRUDBody,
+                        ...routeParams,
                         requestId: requestId,
                         requestMetadata: requestMetadata
                     };
@@ -128,7 +149,7 @@ export class PromptCRUDV1 {
 
                     // this.logger.log(`CRUDPromptRoute.EXECUTE_WITHOUT_USER_PROMPT: request:\n${JSON.stringify(request, null, 2)}`);
 
-                    return await this.promptExecutionV1Service.executePromptWithoutUserPromptNoToolExec(validatedBody);
+                    return await this.promptExecutionV1Service.executePromptWithoutUserPromptWithTools(validatedBody);
                 }
 
                 case `${CRUDOperationName.GET}-${CRUDPromptRoute.GET_EXECUTION_LOGS}`: {
@@ -143,6 +164,21 @@ export class PromptCRUDV1 {
                         { metatype: OB1PromptDto.ExecutionLogsQueryDto, type: 'query' }
                     );
                     return await this.promptExecutionV1Service.getExecutionLogs(routeParams.promptId, validatedQuery);
+                }
+                case `${CRUDOperationName.POST}-${CRUDPromptRoute.CREATE_CATEGORY}`: {
+                    const validatedBody = await this.validationPipe.transform(
+                        CRUDBodyWithConsultantPayload,
+                        { metatype: OB1PromptDto.CreateCategory, type: 'body' }
+                    );
+                    return await this.promptCategoryManagementV1Service.createCategory(validatedBody);
+                }
+
+                case `${CRUDOperationName.GET}-${CRUDPromptRoute.LIST_CATEGORIES}`: {
+                    const validatedBody = await this.validationPipe.transform(
+                        CRUDBodyWithConsultantPayload,
+                        { metatype: OB1PromptDto.GetCategory, type: 'body' }
+                    );
+                    return await this.promptCategoryManagementV1Service.getCategories(validatedBody);
                 }
 
                 default:

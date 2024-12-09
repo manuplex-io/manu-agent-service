@@ -127,7 +127,11 @@ export class WorkflowCRUDV1 {
 
                 // Workflow Category Routes
                 case `${CRUDOperationName.GET}-${CRUDWorkflowRoute.LIST_CATEGORIES}`: {
-                    return await this.workflowCategoryService.getCategories();
+                    const validatedBody = await this.validationPipe.transform(
+                        CRUDBodyWithConsultantPayload,
+                        { metatype: WorkflowDto.GetCategoryDto, type: 'body' }
+                    );
+                    return await this.workflowCategoryService.getCategories(validatedBody);
                 }
 
                 case `${CRUDOperationName.POST}-${CRUDWorkflowRoute.CREATE_CATEGORY}`: {

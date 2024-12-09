@@ -27,8 +27,8 @@ export namespace OB1LLMDto {
         @IsOptional()
         @IsArray()
         @ValidateNested({ each: true })
-        @Type(() => OB1LLM.Message)
-        messageHistory?: OB1LLM.Message[];
+        @Type(() => OB1LLM.NonToolMessage)
+        messageHistory?: OB1LLM.NonToolMessage[];
 
         @IsOptional()
         reqHeaders?: any;
@@ -53,7 +53,6 @@ export namespace OB1LLMDto {
         @IsOptional()
         @IsArray()
         @ValidateNested({ each: true })
-        @Type(() => OB1LLM.Tool)
         inputTools?: Array<OB1LLM.Tool>;
 
         //response_format

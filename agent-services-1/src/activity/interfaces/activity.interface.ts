@@ -109,6 +109,9 @@ export namespace OB1Activity {
         personId: string;
         consultantOrgShortName: string;
     }
+    export interface GetCategory {
+        consultantOrgShortName: string;
+    }
 
     // Update Category Interface
     export interface UpdateCategory {

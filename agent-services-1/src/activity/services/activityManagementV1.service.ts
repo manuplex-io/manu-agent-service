@@ -1,5 +1,5 @@
 // /src/activitys/services/activityManagementV1.service.ts
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
@@ -71,13 +71,7 @@ export class ActivityManagementV1Service {
             const activity = await this.activityRepository.findOne({ where: { activityId: id } });
 
             if (!activity) {
-                return {
-                    success: false,
-                    error: {
-                        code: 'ACTIVITY_NOT_FOUND',
-                        message: `Activity with ID ${id} not found`,
-                    },
-                };
+                throw new NotFoundException(`Activity with ID ${id} not found`);
             }
 
             return {
@@ -85,14 +79,10 @@ export class ActivityManagementV1Service {
                 data: this.mapToActivityResponse(activity),
             };
         } catch (error) {
-            return {
-                success: false,
-                error: {
-                    code: 'ACTIVITY_FETCH_FAILED',
-                    message: 'Failed to fetch activity',
-                    details: { error: error.message },
-                },
-            };
+            throw new BadRequestException({
+                message: 'Failed to fetch activity',
+                errorSuperDetails: { error },
+            });
         }
     }
 
@@ -101,11 +91,12 @@ export class ActivityManagementV1Service {
         params: OB1Activity.ActivityQueryParams,
     ): Promise<OB1Activity.ServiceResponse<OB1Activity.PaginatedResponse<OB1Activity.ActivityResponse>>> {
         try {
-            const { activityCategoryId, search, page = 1, limit = 10 } = params;
+            const { activityCategoryId, search, consultantOrgShortName, page = 1, limit = 10 } = params;
 
             const queryBuilder = this.activityRepository
                 .createQueryBuilder('activity')
-                .leftJoinAndSelect('activity.activityCategory', 'activityCategory');
+                .leftJoinAndSelect('activity.activityCategory', 'activityCategory')
+                .where('activity.activityCreatedByConsultantOrgShortName = :consultantOrgShortName', { consultantOrgShortName });
 
             if (activityCategoryId) {
                 queryBuilder.andWhere('activityCategory.activityCategoryId = :activityCategoryId', { activityCategoryId });
@@ -135,14 +126,10 @@ export class ActivityManagementV1Service {
                 },
             };
         } catch (error) {
-            return {
-                success: false,
-                error: {
-                    code: 'ACTIVITY_FETCH_FAILED',
-                    message: 'Failed to fetch activities',
-                    details: { error: error.message },
-                },
-            };
+            throw new BadRequestException({
+                message: 'Failed to fetch activities',
+                errorSuperDetails: { error },
+            });
         }
     }
 
@@ -155,13 +142,7 @@ export class ActivityManagementV1Service {
             const activity = await this.activityRepository.findOne({ where: { activityId: id } });
 
             if (!activity) {
-                return {
-                    success: false,
-                    error: {
-                        code: 'ACTIVITY_NOT_FOUND',
-                        message: `Activity with ID ${id} not found`,
-                    },
-                };
+                throw new NotFoundException(`Activity with ID ${id} not found`);
             }
 
             // Fetch the previous version
@@ -193,14 +174,10 @@ export class ActivityManagementV1Service {
                 },
             };
         } catch (error) {
-            return {
-                success: false,
-                error: {
-                    code: 'ACTIVITY_UPDATE_FAILED',
-                    message: 'Failed to update activity',
-                    details: { error: error.message },
-                },
-            };
+            throw new BadRequestException({
+                message: 'Failed to update activity',
+                errorSuperDetails: { error },
+            });
         }
     }
 
@@ -210,13 +187,7 @@ export class ActivityManagementV1Service {
             const activity = await this.activityRepository.findOne({ where: { activityId: id } });
 
             if (!activity) {
-                return {
-                    success: false,
-                    error: {
-                        code: 'ACTIVITY_NOT_FOUND',
-                        message: `Activity with ID ${id} not found`,
-                    },
-                };
+                throw new NotFoundException(`Activity with ID ${id} not found`);
             }
 
             await this.activityRepository.remove(activity);
@@ -224,14 +195,10 @@ export class ActivityManagementV1Service {
                 success: true,
             };
         } catch (error) {
-            return {
-                success: false,
-                error: {
-                    code: 'ACTIVITY_DELETE_FAILED',
-                    message: 'Failed to delete activity',
-                    details: { error: error.message },
-                },
-            };
+            throw new BadRequestException({
+                message: 'Failed to delete activity',
+                errorSuperDetails: { error },
+            });
         }
     }
 

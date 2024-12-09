@@ -44,9 +44,16 @@ export class WorkflowCategoryManagementV1Service {
     }
 
     // Get All Workflow Categories
-    async getCategories(): Promise<OB1Workflow.ServiceResponse<OB1Workflow.CategoryResponse[]>> {
+    async getCategories(
+        getCategoryBody: OB1Workflow.GetCategory,
+    ): Promise<OB1Workflow.ServiceResponse<OB1Workflow.CategoryResponse[]>> {
         try {
-            const categories = await this.categoryRepository.find();
+            const { consultantOrgShortName } = getCategoryBody;
+            const categories = await this.categoryRepository.find({
+                where: {
+                    workflowCategoryCreatedByConsultantOrgShortName: consultantOrgShortName
+                }
+            });
 
             return {
                 success: true,

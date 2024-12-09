@@ -45,9 +45,16 @@ export class ActivityCategoryManagementV1Service {
     }
 
     // Get All Activity Categories
-    async getCategories(): Promise<OB1Activity.ServiceResponse<OB1Activity.CategoryResponse[]>> {
+    async getCategories(
+        getCategoryBody: OB1Activity.GetCategory,
+    ): Promise<OB1Activity.ServiceResponse<OB1Activity.CategoryResponse[]>> {
         try {
-            const categories = await this.categoryRepository.find();
+            const { consultantOrgShortName } = getCategoryBody;
+            const categories = await this.categoryRepository.find({
+                where: {
+                    activityCategoryCreatedByConsultantOrgShortName: consultantOrgShortName
+                }
+            });
 
             return {
                 success: true,

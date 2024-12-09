@@ -14,6 +14,7 @@ import {
     Unique,
     DataSource,
     BeforeUpdate,
+    JoinColumn,
 } from 'typeorm';
 import { OB1AgentActivityCategory } from './ob1-agent-activityCategory.entity';
 import { OB1AgentWorkflowActivities } from '../../workflows/entities/ob1-agent-workflowActivities.entity';
@@ -69,7 +70,7 @@ export class OB1AgentActivities {
             .getRepository(OB1AgentActivities)
             .createQueryBuilder('activity')
             .where(
-                'activity.activityName = :name AND activity.activityCategoryActivityCategoryId = :categoryId AND activity.activityCreatedByConsultantOrgShortName = :org',
+                'activity.activityName = :name AND activity.activityCategoryId = :categoryId AND activity.activityCreatedByConsultantOrgShortName = :org',
                 {
                     name: this.activityName,
                     categoryId: this.activityCategory.activityCategoryId,
@@ -170,7 +171,6 @@ export class OB1AgentActivities {
 
     @Column({
         type: 'varchar',
-        //default: 'DEFALT',
         comment: 'Consultant organization short name who created this activity in camelCase only',
     })
     @Check(`"activityCreatedByConsultantOrgShortName" ~ '^[a-z][a-zA-Z0-9]*$'`) //camelCase
@@ -205,6 +205,7 @@ export class OB1AgentActivities {
         onDelete: 'RESTRICT', // Prevent deletion of a category if it is referenced
         onUpdate: 'CASCADE',
     })
+    @JoinColumn({ name: 'activityCategoryId' }) // Explicitly set the foreign key column name
     activityCategory: OB1AgentActivityCategory;
 
     @CreateDateColumn({

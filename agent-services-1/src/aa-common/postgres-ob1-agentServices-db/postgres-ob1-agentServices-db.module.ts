@@ -30,31 +30,44 @@ import { OB1AgentActivityExecution } from '../../activity/entities/ob1-agent-act
       isGlobal: true, // This will make .env configurations accessible throughout the app
     }),
     TypeOrmModule.forRootAsync({
-      useFactory: () => ({
-        type: 'postgres',
-        host: process.env.OB1_DB_HOST,
-        port: +process.env.OB1_DB_PORT,
-        username: process.env.ENV === 'dev' ? process.env.OB1_DB_USERNAME_AGENTSERVICE_DEV : process.env.OB1_DB_USERNAME_AGENTSERVICE,
-        password: process.env.ENV === 'dev' ? process.env.OB1_DB_PASSWORD_AGENTSERVICE_DEV : process.env.OB1_DB_PASSWORD_AGENTSERVICE,
-        database: process.env.OB1_DB_DATABASE_AGENTSERVICE,
-        entities: [
-          OB1AgentTools,
-          OB1AgentToolCategory,
-          OB1AgentToolExecutionLog,
-          OB1AgentPrompts,
-          OB1AgentPromptCategory,
-          OB1AgentPromptExecutionLog,
-          OB1AgentWorkflows,
-          OB1AgentWorkflowCategory,
-          OB1AgentWorkflowExecutionLog,
-          OB1AgentWorkflowActivities,
-          OB1AgentActivities,
-          OB1AgentActivityCategory,
-          OB1AgentActivityExecution,
-        ], // Add the entities relevant to this DB
-        // synchronize: true,
-        synchronize: process.env.ENV === 'dev',  // Only synchronize in the 'dev' environment
-      }),
+      useFactory: () => {
+        const isLocalEnv = ['local', 'localhost'].includes(process.env.ENV);
+        const isDevEnv = process.env.ENV === 'dev';
+        const isProdEnv = process.env.ENV === 'prod';
+
+        return {
+          type: 'postgres',
+          host: process.env.OB1_DB_HOST,
+          port: +process.env.OB1_DB_PORT,
+          database: process.env.OB1_DB_DATABASE_AGENTSERVICE || 'ob1-agentServices-db',
+          username: isLocalEnv
+            ? process.env.OB1_DB_USERNAME_AGENTSERVICE_LOCAL
+            : isDevEnv
+              ? process.env.OB1_DB_USERNAME_AGENTSERVICE_DEV
+              : process.env.OB1_DB_USERNAME_AGENTSERVICE,
+          password: isLocalEnv
+            ? process.env.OB1_DB_PASSWORD_AGENTSERVICE_LOCAL
+            : isDevEnv
+              ? process.env.OB1_DB_PASSWORD_AGENTSERVICE_DEV
+              : process.env.OB1_DB_PASSWORD_AGENTSERVICE,
+          entities: [
+            OB1AgentTools,
+            OB1AgentToolCategory,
+            OB1AgentToolExecutionLog,
+            OB1AgentPrompts,
+            OB1AgentPromptCategory,
+            OB1AgentPromptExecutionLog,
+            OB1AgentWorkflows,
+            OB1AgentWorkflowCategory,
+            OB1AgentWorkflowExecutionLog,
+            OB1AgentWorkflowActivities,
+            OB1AgentActivities,
+            OB1AgentActivityCategory,
+            OB1AgentActivityExecution,
+          ], // Add the entities relevant to this DB
+          synchronize: isLocalEnv || isDevEnv, // Synchronize only in 'local', 'localhost', or 'dev' environments
+        };
+      },
       dataSourceFactory: async (options) => {
         const dataSource = new DataSource(options);
         await dataSource.initialize();

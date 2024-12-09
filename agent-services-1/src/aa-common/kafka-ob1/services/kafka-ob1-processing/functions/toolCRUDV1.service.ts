@@ -10,6 +10,8 @@ import {
 } from '../../../interfaces/CRUD.interfaces';
 import { OB1ToolDto } from 'src/tools/Dto/tool.Dto';
 
+import { PersonPayload } from 'src/aa-common/kafka-ob1/interfaces/personPayload.interface';
+
 @Injectable()
 export class ToolCRUDV1 {
     private readonly logger = new Logger(ToolCRUDV1.name);
@@ -27,11 +29,25 @@ export class ToolCRUDV1 {
         try {
             const { CRUDOperationName: operation, CRUDRoute: route, CRUDBody, routeParams, queryParams } = functionInput;
 
+            // retrieve consultantPayload as PersonPayload from the CRUDBody
+            const consultantPayload = CRUDBody?.consultantPayload as PersonPayload;
+
+            // add the contents of the consultantPayload to the CRUDBody
+            const CRUDBodyWithConsultantPayload = {
+                ...CRUDBody,
+                consultantOrgShortName: consultantPayload?.consultantOrgShortName,
+                personId: consultantPayload?.personId,
+            };
+
             switch (`${operation}-${route}`) {
                 // Tools Routes
                 case `${CRUDOperationName.GET}-${CRUDToolRoute.LIST_TOOLS}`: {
+                    const updatedQueryParams = {
+                        ...queryParams, consultantOrgShortName: consultantPayload?.consultantOrgShortName,
+                        personId: consultantPayload?.personId,
+                    };
                     const validatedQuery = await this.validationPipe.transform(
-                        queryParams,
+                        updatedQueryParams,
                         { metatype: OB1ToolDto.ToolQueryParamsDto, type: 'query' }
                     );
                     return await this.toolsManagementService.getTools(validatedQuery);
@@ -59,7 +75,7 @@ export class ToolCRUDV1 {
 
                 case `${CRUDOperationName.POST}-${CRUDToolRoute.CREATE_TOOL}`: {
                     const validatedBody = await this.validationPipe.transform(
-                        CRUDBody,
+                        CRUDBodyWithConsultantPayload,
                         { metatype: OB1ToolDto.CreateToolDto, type: 'body' }
                     );
                     return await this.toolsManagementService.createTool(validatedBody);
@@ -73,7 +89,7 @@ export class ToolCRUDV1 {
                         });
                     }
                     const validatedBody = await this.validationPipe.transform(
-                        CRUDBody,
+                        CRUDBodyWithConsultantPayload,
                         { metatype: OB1ToolDto.UpdateToolDto, type: 'body' }
                     );
                     return await this.toolsManagementService.updateTool(routeParams.toolId, validatedBody);
@@ -91,12 +107,16 @@ export class ToolCRUDV1 {
 
                 // Category Routes
                 case `${CRUDOperationName.GET}-${CRUDToolRoute.LIST_CATEGORIES}`: {
-                    return await this.toolsCategoryService.getToolCategories();
+                    const validatedBody = await this.validationPipe.transform(
+                        CRUDBodyWithConsultantPayload,
+                        { metatype: OB1ToolDto.GetCategoryDto, type: 'body' }
+                    );
+                    return await this.toolsCategoryService.getToolCategories(validatedBody);
                 }
 
                 case `${CRUDOperationName.POST}-${CRUDToolRoute.CREATE_CATEGORY}`: {
                     const validatedBody = await this.validationPipe.transform(
-                        CRUDBody,
+                        CRUDBodyWithConsultantPayload,
                         { metatype: OB1ToolDto.CreateCategoryDto, type: 'body' }
                     );
                     return await this.toolsCategoryService.createToolCategory(validatedBody);
@@ -110,7 +130,7 @@ export class ToolCRUDV1 {
                         });
                     }
                     const validatedBody = await this.validationPipe.transform(
-                        CRUDBody,
+                        CRUDBodyWithConsultantPayload,
                         { metatype: OB1ToolDto.UpdateCategoryDto, type: 'body' }
                     );
                     return await this.toolsCategoryService.updateToolCategory(routeParams.toolId, validatedBody);
@@ -127,6 +147,13 @@ export class ToolCRUDV1 {
                 }
 
                 // Tool Execution Routes
+                case `${CRUDOperationName.POST}-${CRUDToolRoute.VALIDATE_TOOL}`: {
+                    const validatedBody = await this.validationPipe.transform(
+                        CRUDBodyWithConsultantPayload,
+                        { metatype: OB1ToolDto.ValidateToolCodeDto, type: 'body' }
+                    );
+                    return await this.toolsExecutionService.validateAnyToolCode(validatedBody);
+                }
                 case `${CRUDOperationName.POST}-${CRUDToolRoute.DEPLOY_TOOL}`: {
                     if (!routeParams?.toolId) {
                         throw new BadRequestException({
@@ -144,11 +171,14 @@ export class ToolCRUDV1 {
                             details: { routeParams },
                         });
                     }
-                    const toolRequest = {
+                    //this.logger.log(`0. Tool CRUDBodyWithConsultantPayload: ${JSON.stringify(CRUDBodyWithConsultantPayload, null, 2)}`);
+                    const toolRequest: OB1ToolDto.ToolRequestDto = {
                         toolId: routeParams.toolId,
-                        toolInput: CRUDBody,
+                        toolInputVariables: CRUDBodyWithConsultantPayload?.toolInputVariables || {},
+                        toolInputENVVariables: CRUDBodyWithConsultantPayload?.toolInputENVVariables || {},
                         requestingServiceId: 'toolsCRUDV1',
                     };
+                    this.logger.log(`1. Tool Request: ${JSON.stringify(toolRequest, null, 2)}`);
                     return await this.toolsExecutionService.executeAnyTool(toolRequest);
                 }
 

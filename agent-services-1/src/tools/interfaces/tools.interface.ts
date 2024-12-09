@@ -2,7 +2,7 @@
 
 import { IsString, IsEnum, IsObject, IsOptional, IsArray, IsNumber, IsUUID, Min, Max, ArrayMinSize, ValidateNested, IsBoolean } from 'class-validator';
 import { Type } from 'class-transformer';
-import { OB1AgentTools } from '../entities/ob1-agent-tools.entity';
+
 
 
 export namespace OB1Tool {
@@ -46,82 +46,32 @@ export namespace OB1Tool {
         cooldownPeriod?: number;
     }
 
-    export class CreateTool {
-        @IsString()
+    export interface CreateTool {
+
         toolName: string;
-
-        @IsString()
         toolDescription: string;
-
-        @IsEnum(ToolType)
         toolType: ToolType;
-
-        @IsOptional()
-        @IsEnum(ToolStatus)
         toolStatus?: ToolStatus;
-
-        @IsObject()
         toolInputSchema: Record<string, any>;
-
-        @IsObject()
         toolOutputSchema: Record<string, any>;
-
-        @IsObject()
         toolConfig: Record<string, any>;
-
-        @IsOptional()
-        @IsString()
         toolCode?: string;
-
-        @IsOptional()
-        @IsString()
         toolPythonRequirements?: string;
-
-        @IsOptional()
-        @IsString()
         toolIdentifier?: string;
-
-        @IsArray()
-        @IsString({ each: true })
         toolTags: string[];
-
-        @IsOptional()
-        @IsUUID()
         toolCategoryId?: string;
-
-        @IsArray()
-        @IsString({ each: true })
-        @ArrayMinSize(0)
         toolAllowedAgents: string[];
-
-        @IsOptional()
-        @ValidateNested()
-        @Type(() => UsageQuotaDto)
         toolUsageQuota?: UsageQuotaDto;
-
-        @IsOptional()
-        @IsString()
         toolExamples?: string;
-
-        @IsOptional()
-        @IsObject()
         toolMetadata?: Record<string, any>;
-
         personId: string;
         consultantOrgShortName: string;
     }
 
-    export class UpdateTool extends CreateTool {
-        @IsOptional()
-        @IsString()
+    export interface UpdateTool extends CreateTool {
+
         toolName: string;
-
-        @IsOptional()
-        @IsString()
         toolDescription: string;
-
-        @IsOptional()
-        @IsEnum(ToolType)
         toolType: ToolType;
     }
 
@@ -138,25 +88,21 @@ export namespace OB1Tool {
     }
 
     export class CreateCategory {
-        @IsString()
+
         toolCategoryName: string;
-
-        @IsString()
         toolCategoryDescription: string;
-
         personId: string;
         consultantOrgShortName: string;
     }
 
+    export class GetCategory {
+        consultantOrgShortName: string;
+    }
+
     export class UpdateCategory {
-        @IsOptional()
-        @IsString()
+
         toolCategoryName?: string;
-
-        @IsOptional()
-        @IsString()
         toolCategoryDescription?: string;
-
         personId: string;
         consultantOrgShortName: string;
     }
@@ -196,91 +142,34 @@ export namespace OB1Tool {
         totalPages: number;
     }
 
-    // Event interfaces for Kafka messages
-    export interface ToolEvent {
-        toolEventType: ToolEventType;
-        toolId?: string;
-        toolCategoryId?: string;
-        payload: CreateTool | UpdateTool | CreateCategory | UpdateCategory;
-        userId: string;
-        timestamp: Date;
-    }
-
-    export enum ToolEventType {
-        TOOL_CREATED = 'tool.created',
-        TOOL_UPDATED = 'tool.updated',
-        TOOL_DELETED = 'tool.deleted',
-        CATEGORY_CREATED = 'category.created',
-        CATEGORY_UPDATED = 'category.updated',
-        CATEGORY_DELETED = 'category.deleted'
-    }
-
     export interface ToolUpdateResult {
         previousVersion: ToolResponseDto;
         updatedVersion: ToolResponseDto;
         changes: string[];
     }
 
-    export class ToolRequest {
+    export interface ToolRequest {
 
-        @IsString()
         toolId: string;
-
-        @IsObject()
-        toolInput: any;
-
-        @IsString()
+        toolInputVariables?: Record<string, any>;
         requestingServiceId: string;
+        toolInputENVVariables?: Record<string, any>;
     }
 
-    export class ToolResponse {
+    export interface ToolResponse {
 
-        @IsObject()
         toolResult: any;
-
-        @IsBoolean()
         toolSuccess: boolean;
-
-        @IsNumber()
         toolExecutionTime: number;
-    }
-
-    export class ToolPythonRequest {
-
-        @IsObject()
-        tool: OB1AgentTools;
-
-        @IsObject()
-        toolInput: any;
-
-
-        @IsString()
-        requestingServiceId: string;
-    }
-
-    export class ToolPythonResponse {
-
-        @IsObject()
-        toolResult: any;
-
-        @IsBoolean()
-        toolSuccess: boolean;
-
-        @IsNumber()
-        toolExecutionTime: number;
-
-        @IsOptional()
-        toolError?: any;
-
-        @IsOptional()
-        toolstatusCodeReturned?: number;
-
     }
 
     export interface ToolCallLog {
         toolName: string;
         toolInputArguments: Record<string, any>;
         toolOutput: any;
+        toolError?: any
+        toolstatusCodeReturned?: number;
+        toolExecutionTime: number;
     }
 
 }

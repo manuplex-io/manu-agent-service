@@ -106,9 +106,9 @@ export namespace OB1WorkflowDto {
         @IsString()
         search?: string;
 
-        @IsOptional()
+        @IsNotEmpty()
         @IsString()
-        consultantOrgShortName?: string;
+        consultantOrgShortName: string;
 
         @IsOptional()
         @IsString()
@@ -148,7 +148,11 @@ export namespace OB1WorkflowDto {
         @IsString()
         personId: string;
     }
-
+    export class GetCategoryDto {
+        @IsNotEmpty()
+        @IsString()
+        consultantOrgShortName: string;
+    }
     export class UpdateCategoryDto {
         @IsOptional()
         @IsString()

@@ -1,6 +1,6 @@
 // src/tools/services/toolsCatogoryManagementV1.service.ts
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { OB1AgentToolCategory } from '../entities/ob1-agent-toolCategory.entity';
@@ -28,33 +28,35 @@ export class ToolsCatogoryManagementV1Service {
                 data: savedCategory
             };
         } catch (error) {
-            return {
-                success: false,
-                error: {
-                    code: 'CATEGORY_CREATION_FAILED',
-                    message: 'Failed to create toolCategory',
-                    details: { error: error.message }
-                }
-            };
+            throw new BadRequestException({
+                message: 'Category not found',
+                code: 'CATEGORY_NOT_FOUND',
+                details: { error: error.message }
+            });
+
         }
     }
 
-    async getToolCategories(): Promise<OB1Tool.ServiceResponse<OB1AgentToolCategory[]>> {
+    async getToolCategories(
+        getCategoryBody: OB1Tool.GetCategory
+    ): Promise<OB1Tool.ServiceResponse<OB1AgentToolCategory[]>> {
         try {
-            const categories = await this.toolCategoryRepository.find();
+            const { consultantOrgShortName } = getCategoryBody;
+            const categories = await this.toolCategoryRepository.find({
+                where: {
+                    toolCategoryCreatedByConsultantOrgShortName: consultantOrgShortName
+                }
+            });
             return {
                 success: true,
                 data: categories
             };
         } catch (error) {
-            return {
-                success: false,
-                error: {
-                    code: 'CATEGORY_FETCH_FAILED',
-                    message: 'Failed to fetch categories',
-                    details: { error: error.message }
-                }
-            };
+            throw new BadRequestException({
+                message: 'Failed to fetch categories',
+                code: 'CATEGORY_FETCH_FAILED',
+                details: { error: error.message }
+            });
         }
     }
 
@@ -65,13 +67,10 @@ export class ToolsCatogoryManagementV1Service {
             });
 
             if (!toolCategory) {
-                return {
-                    success: false,
-                    error: {
-                        code: 'CATEGORY_NOT_FOUND',
-                        message: `Category with ID ${id} not found`
-                    }
-                };
+                throw new BadRequestException({
+                    message: `Category with ID ${id} not found`,
+                    code: 'CATEGORY_NOT_FOUND'
+                });
             }
 
             Object.assign(toolCategory, updateCategoryDto);
@@ -82,14 +81,11 @@ export class ToolsCatogoryManagementV1Service {
                 data: updatedCategory
             };
         } catch (error) {
-            return {
-                success: false,
-                error: {
-                    code: 'CATEGORY_UPDATE_FAILED',
-                    message: 'Failed to update toolCategory',
-                    details: { error: error.message }
-                }
-            };
+            throw new BadRequestException({
+                message: 'Failed to update category',
+                code: 'CATEGORY_UPDATE_FAILED',
+                details: { error: error.message }
+            });
         }
     }
 
@@ -97,25 +93,19 @@ export class ToolsCatogoryManagementV1Service {
         try {
             const result = await this.toolCategoryRepository.delete(id);
             if (result.affected === 0) {
-                return {
-                    success: false,
-                    error: {
-                        code: 'CATEGORY_NOT_FOUND',
-                        message: `Category with ID ${id} not found`
-                    }
-                };
+                throw new BadRequestException({
+                    message: `Category with ID ${id} not found`,
+                    code: 'CATEGORY_NOT_FOUND'
+                });
             }
 
             return { success: true };
         } catch (error) {
-            return {
-                success: false,
-                error: {
-                    code: 'CATEGORY_DELETE_FAILED',
-                    message: 'Failed to delete toolCategory',
-                    details: { error: error.message }
-                }
-            };
+            throw new BadRequestException({
+                message: 'Failed to delete category',
+                code: 'CATEGORY_DELETE_FAILED',
+                details: { error: error.message }
+            });
         }
     }
 

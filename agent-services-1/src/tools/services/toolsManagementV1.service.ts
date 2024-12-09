@@ -1,6 +1,6 @@
 // src/tools/services/toolsManagementV1.service.ts
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { OB1AgentTools } from '../entities/ob1-agent-tools.entity';
@@ -9,11 +9,14 @@ import {
     OB1Tool
 } from '../interfaces/tools.interface';
 
+import { ToolsExecutionV1Service } from './toolsExecutionV1.service';
+
 @Injectable()
 export class ToolsManagementV1Service {
     constructor(
         @InjectRepository(OB1AgentTools) private toolsRepository: Repository<OB1AgentTools>,
-        @InjectRepository(OB1AgentToolCategory) private toolCategoryRepository: Repository<OB1AgentToolCategory>
+        @InjectRepository(OB1AgentToolCategory) private toolCategoryRepository: Repository<OB1AgentToolCategory>,
+        private readonly toolsExecutionV1Service: ToolsExecutionV1Service
     ) { }
 
     // Tool Methods
@@ -24,14 +27,29 @@ export class ToolsManagementV1Service {
                 : null;
 
             if (createToolDto.toolCategoryId && !toolCategory) {
-                return {
-                    success: false,
-                    error: {
-                        code: 'CATEGORY_NOT_FOUND',
-                        message: 'Category not found'
-                    }
-                };
+                throw new BadRequestException({
+                    message: `Category not found`,
+                    code: 'CATEGORY_NOT_FOUND'
+                });
+
             }
+
+            //validate tool before saving using toolsExecutionV1Service.validateAnyTool
+            const validationResponse = await this.toolsExecutionV1Service.validateAnyToolCode({
+                toolName: createToolDto.toolName,
+                toolCode: createToolDto.toolCode,
+                toolPythonRequirements: createToolDto.toolPythonRequirements,
+                toolType: createToolDto.toolType
+            });
+
+            if (!validationResponse.success) {
+                throw new BadRequestException({
+                    message: 'Failed to validate tool',
+                    code: 'TOOL_VALIDATION_FAILED',
+                    details: { error: validationResponse.message }
+                });
+            }
+
 
             const tool = this.toolsRepository.create({
                 ...createToolDto,
@@ -41,30 +59,44 @@ export class ToolsManagementV1Service {
                 toolCreatedByPersonId: createToolDto.personId
             });
 
+
+
+
+
             const savedTool = await this.toolsRepository.save(tool);
+
+            //deploy the tool using toolsExecutionV1Service.deployAnyTool
+            const deployResult = await this.toolsExecutionV1Service.deployAnyTool(savedTool.toolId);
+
+            if (!deployResult.success) {
+                throw new BadRequestException({
+                    message: 'Failed to deploy tool',
+                    code: 'TOOL_DEPLOYMENT_FAILED',
+                    details: { error: deployResult.message }
+                });
+            }
+
             return {
                 success: true,
                 data: this.mapToToolResponse(savedTool)
             };
         } catch (error) {
-            return {
-                success: false,
-                error: {
-                    code: 'TOOL_CREATION_FAILED',
-                    message: 'Failed to create tool',
-                    details: { error: error.message }
-                }
-            };
+            throw new BadRequestException({
+                message: 'Failed to create tool',
+                code: 'TOOL_CREATION_FAILED',
+                details: { error: error.message }
+            });
         }
     }
 
     async getTools(params: OB1Tool.ToolQueryParamsDto): Promise<OB1Tool.ServiceResponse<OB1Tool.PaginatedResponse<OB1Tool.ToolResponseDto>>> {
         try {
-            const { toolStatus, toolCategoryId, toolTags, toolType, search, page = 1, limit = 10 } = params;
+            const { toolStatus, toolCategoryId, toolTags, toolType, search, consultantOrgShortName, page = 1, limit = 10 } = params;
 
             const queryBuilder = this.toolsRepository
                 .createQueryBuilder('tool')
-                .leftJoinAndSelect('tool.toolCategory', 'toolCategory');
+                .leftJoinAndSelect('tool.toolCategory', 'toolCategory')
+                .where('tool.toolCreatedByConsultantOrgShortName = :consultantOrgShortName', { consultantOrgShortName });
 
             if (toolStatus) {
                 queryBuilder.andWhere('tool.toolStatus = :toolStatus', { toolStatus });
@@ -106,14 +138,11 @@ export class ToolsManagementV1Service {
                 }
             };
         } catch (error) {
-            return {
-                success: false,
-                error: {
-                    code: 'TOOL_FETCH_FAILED',
-                    message: 'Failed to fetch tools',
-                    details: { error: error.message }
-                }
-            };
+            throw new BadRequestException({
+                message: 'Failed to fetch tools',
+                code: 'TOOL_FETCH_FAILED',
+                details: { error: error.message }
+            });
         }
     }
 
@@ -125,13 +154,10 @@ export class ToolsManagementV1Service {
             });
 
             if (!tool) {
-                return {
-                    success: false,
-                    error: {
-                        code: 'TOOL_NOT_FOUND',
-                        message: `Tool with ID ${id} not found`
-                    }
-                };
+                throw new BadRequestException({
+                    message: `Tool with ID ${id} not found`,
+                    code: 'TOOL_NOT_FOUND'
+                });
             }
 
             return {
@@ -139,14 +165,11 @@ export class ToolsManagementV1Service {
                 data: this.mapToToolResponse(tool)
             };
         } catch (error) {
-            return {
-                success: false,
-                error: {
-                    code: 'TOOL_FETCH_FAILED',
-                    message: 'Failed to fetch tool',
-                    details: { error: error.message }
-                }
-            };
+            throw new BadRequestException({
+                message: 'Failed to fetch tool',
+                code: 'TOOL_FETCH_FAILED',
+                details: { error: error.message }
+            });
         }
     }
 
@@ -158,13 +181,10 @@ export class ToolsManagementV1Service {
             });
 
             if (!tool) {
-                return {
-                    success: false,
-                    error: {
-                        code: 'TOOL_NOT_FOUND',
-                        message: `Tool with ID ${id} not found`
-                    }
-                };
+                throw new BadRequestException({
+                    message: `Tool with ID ${id} not found`,
+                    code: 'TOOL_NOT_FOUND'
+                });
             }
 
             return {
@@ -172,14 +192,11 @@ export class ToolsManagementV1Service {
                 data: tool,
             };
         } catch (error) {
-            return {
-                success: false,
-                error: {
-                    code: 'TOOL_FETCH_FAILED',
-                    message: 'Failed to fetch tool',
-                    details: { error: error.message }
-                }
-            };
+            throw new BadRequestException({
+                message: 'Failed to fetch tool',
+                code: 'TOOL_FETCH_FAILED',
+                details: { error: error.message }
+            });
         }
     }
 
@@ -191,13 +208,10 @@ export class ToolsManagementV1Service {
             });
 
             if (!tool) {
-                return {
-                    success: false,
-                    error: {
-                        code: 'TOOL_NOT_FOUND',
-                        message: `Tool with ID ${id} not found`
-                    }
-                };
+                throw new BadRequestException({
+                    message: `Tool with ID ${id} not found`,
+                    code: 'TOOL_NOT_FOUND'
+                });
             }
 
             const previousVersion = this.mapToToolResponse(tool);
@@ -208,13 +222,10 @@ export class ToolsManagementV1Service {
                     where: { toolCategoryId: updateToolDto.toolCategoryId }
                 });
                 if (!toolCategory) {
-                    return {
-                        success: false,
-                        error: {
-                            code: 'CATEGORY_NOT_FOUND',
-                            message: 'Category not found'
-                        }
-                    };
+                    throw new BadRequestException({
+                        message: `Category not found`,
+                        code: 'CATEGORY_NOT_FOUND'
+                    });
                 }
                 tool.toolCategory = toolCategory;
                 changes.push('toolCategory');
@@ -239,14 +250,11 @@ export class ToolsManagementV1Service {
                 }
             };
         } catch (error) {
-            return {
-                success: false,
-                error: {
-                    code: 'TOOL_UPDATE_FAILED',
-                    message: 'Failed to update tool',
-                    details: { error: error.message }
-                }
-            };
+            throw new BadRequestException({
+                message: 'Failed to update tool',
+                code: 'TOOL_UPDATE_FAILED',
+                details: { error: error.message }
+            });
         }
     }
 
@@ -265,14 +273,11 @@ export class ToolsManagementV1Service {
 
             return { success: true };
         } catch (error) {
-            return {
-                success: false,
-                error: {
-                    code: 'TOOL_DELETE_FAILED',
-                    message: 'Failed to delete tool',
-                    details: { error: error.message }
-                }
-            };
+            throw new BadRequestException({
+                message: 'Failed to delete tool',
+                code: 'TOOL_DELETE_FAILED',
+                details: { error: error.message }
+            });
         }
     }
 

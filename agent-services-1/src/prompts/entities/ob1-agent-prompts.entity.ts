@@ -10,6 +10,7 @@ import {
     DataSource,
     ManyToOne,
     Unique,
+    JoinColumn
 } from 'typeorm';
 
 import { OB1Prompt } from '../interfaces/prompt.interface';
@@ -66,7 +67,7 @@ export class OB1AgentPrompts {
             .getRepository(OB1AgentPrompts)
             .createQueryBuilder('prompt')
             .where(
-                'prompt.promptName = :name AND prompt.promptCategorypromptCategoryId = :categoryId AND prompt.promptCreatedByConsultantOrgShortName = :org',
+                'prompt.promptName = :name AND prompt.promptCategoryId = :categoryId AND prompt.promptCreatedByConsultantOrgShortName = :org',
                 {
                     name: this.promptName,
                     categoryId: this.promptCategory.promptCategoryId,
@@ -127,7 +128,11 @@ export class OB1AgentPrompts {
     })
     promptDescription: string;
 
-    @ManyToOne(() => OB1AgentPromptCategory, category => category.prompts)
+    @ManyToOne(() => OB1AgentPromptCategory, category => category.prompts, {
+        onDelete: 'RESTRICT', // Prevent deletion of a category if it is referenced
+        onUpdate: 'CASCADE',
+    })
+    @JoinColumn({ name: 'promptCategoryId' }) // Explicitly set the foreign key column name
     promptCategory: OB1AgentPromptCategory;
 
     @Column({

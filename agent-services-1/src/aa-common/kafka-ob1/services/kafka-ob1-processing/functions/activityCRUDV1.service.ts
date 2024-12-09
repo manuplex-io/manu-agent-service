@@ -125,7 +125,11 @@ export class ActivityCRUDV1 {
 
                 // Category Routes
                 case `${CRUDOperationName.GET}-${CRUDActivityRoute.LIST_CATEGORIES}`: {
-                    return await this.activityCategoryService.getCategories();
+                    const validatedBody = await this.validationPipe.transform(
+                        CRUDBodyWithConsultantPayload,
+                        { metatype: ActivityDto.GetCategoryDto, type: 'body' }
+                    );
+                    return await this.activityCategoryService.getCategories(validatedBody);
                 }
 
                 case `${CRUDOperationName.POST}-${CRUDActivityRoute.CREATE_CATEGORY}`: {

@@ -18,6 +18,11 @@ export const CRUDPromptRoute = {
     UPDATE_PROMPT: 'prompts/:promptId',
     DELETE_PROMPT: 'prompts/:promptId',
 
+    // Prompt category endpoints
+    LIST_CATEGORIES: 'prompts/categories',
+    CREATE_CATEGORY: 'prompts/categories',
+    UPDATE_CATEGORY: 'prompts/categories/:categoryId',
+    DELETE_CATEGORY: 'prompts/categories/:categoryId',
 
     // Prompt execution endpoints
     EXECUTE_WITH_USER_PROMPT: 'prompts/:promptId/executeWithUserPrompt',
@@ -43,6 +48,7 @@ export const CRUDToolRoute = {
     DELETE_CATEGORY: 'tools/categories/:id',
 
     // Tool execution endpoints
+    VALIDATE_TOOL: 'tools/validate',
     DEPLOY_TOOL: 'tools/deploy/:toolId',
     TEST_TOOL: 'tools/test/:toolId',
 } as const;
