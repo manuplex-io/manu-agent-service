@@ -22,7 +22,6 @@ import { OB1AgentActivities } from '../../activity/entities/ob1-agent-activities
 import { OB1AgentActivityCategory } from '../../activity/entities/ob1-agent-activityCategory.entity';
 import { OB1AgentActivityExecution } from '../../activity/entities/ob1-agent-activityExecutionLog.entity';
 
-
 @Global() //no need to import this module in other modules
 @Module({
   imports: [
@@ -34,12 +33,14 @@ import { OB1AgentActivityExecution } from '../../activity/entities/ob1-agent-act
         const isLocalEnv = ['local', 'localhost'].includes(process.env.ENV);
         const isDevEnv = process.env.ENV === 'dev';
         const isProdEnv = process.env.ENV === 'prod';
+        console.log(isLocalEnv, isDevEnv, isProdEnv, 'Local,Dev,Prod');
 
         return {
           type: 'postgres',
           host: process.env.OB1_DB_HOST,
           port: +process.env.OB1_DB_PORT,
-          database: process.env.OB1_DB_DATABASE_AGENTSERVICE || 'ob1-agentServices-db',
+          database:
+            process.env.OB1_DB_DATABASE_AGENTSERVICE || 'ob1-agentServices-db',
           username: isLocalEnv
             ? process.env.OB1_DB_USERNAME_AGENTSERVICE_LOCAL
             : isDevEnv
@@ -98,4 +99,4 @@ import { OB1AgentActivityExecution } from '../../activity/entities/ob1-agent-act
   ],
   exports: [TypeOrmModule],
 })
-export class PostgresOb1AgentServicesDbModule { }
+export class PostgresOb1AgentServicesDbModule {}
