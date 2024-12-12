@@ -9,641 +9,391 @@ import {
 import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
 import { validate } from 'class-validator';
-import { PORTKEY_GATEWAY_URL, createHeaders } from 'portkey-ai';
-import { zodResponseFormat } from 'openai/helpers/zod';
-import { z } from 'zod';
-import { Repository, FindOptionsWhere, Like } from 'typeorm';
+import { PORTKEY_GATEWAY_URL, createHeaders } from 'portkey-ai'
+import { OB1LLM } from '../interfaces/llmV2.interfaces';
 
-import {
-  AnthropicModels,
-  OpenAIModels,
-  Tool,
-  LLMConfig,
-  LLMRequest,
-  LLMResponse,
-  Message,
-  ToolMessage,
-  LLMProvider,
-  ChatCompletionTool,
-  ToolCallResult,
-} from '../interfaces/llmV2.interfaces';
-import { OB1AgentTools } from 'src/tools/entities/ob1-agent-tools.entity';
-import { InjectRepository } from '@nestjs/typeorm';
-import { PythonLambdaV1Service } from 'src/tools/services/toolSpecificService/pythonLambdaV1.service';
+import { zodResponseFormat } from "openai/helpers/zod";
+import { z } from "zod";
 
 @Injectable()
 export class LLMV2Service {
-  private readonly logger = new Logger(LLMV2Service.name);
-  private readonly anthropic: Anthropic;
-  private readonly openai: OpenAI;
-  private validationPipe = new ValidationPipe({
-    transform: true,
-    whitelist: true,
-  }); // Instantiates ValidationPipe
-  constructor(
-    private pythonLambdaV1Service:PythonLambdaV1Service,
-    @InjectRepository(OB1AgentTools) private toolsRepo: Repository<OB1AgentTools>,
-  ) {
-    this.anthropic = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY,
-    });
-    this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-      baseURL: PORTKEY_GATEWAY_URL,
-      defaultHeaders: createHeaders({
-        provider: 'openai',
-        apiKey: process.env.PORTKEY_API_KEY, // uses environment variable for Portkey API key
-      }),
-    });
-  }
 
-  private async validateRequest(request: LLMRequest): Promise<void> {
-    const errors = await validate(request);
-    if (errors.length > 0) {
-      const errorMessages = errors.map((error) =>
-        Object.values(error.constraints || {}).join(', '),
-      );
-      throw new BadRequestException(errorMessages);
+    private readonly logger = new Logger(LLMV2Service.name);
+    private readonly anthropic: Anthropic;
+    private readonly openai: OpenAI;
+    private validationPipe = new ValidationPipe({
+        exceptionFactory: (errors) => {
+            console.error('Validation Errors:', JSON.stringify(errors, null, 2)); // Pretty-print the full error object
+            return new BadRequestException(errors);
+        },
+        whitelist: false, // Removes extra properties not in DTO
+        transform: true, // Ensures incoming data is transformed to the correct types
+    }); // Instantiates ValidationPipe
+    constructor(
+    ) {
+        this.anthropic = new Anthropic({
+            apiKey: process.env.ANTHROPIC_API_KEY,
+        });
+        this.openai = new OpenAI({
+            apiKey: process.env.OPENAI_API_KEY,
+            baseURL: PORTKEY_GATEWAY_URL,
+            defaultHeaders: createHeaders({
+                provider: "openai",
+                apiKey: process.env.PORTKEY_API_KEY // uses environment variable for Portkey API key
+            })
+        });
     }
 
-    // Additional custom validations
-    if (request.messageHistory?.length > 30) {
-      throw new BadRequestException(
-        'Message history cannot exceed 30 messages',
-      );
-    }
+    private async validateRequest(request: OB1LLM.LLMRequest): Promise<void> {
+        // Validate request schema using class-validator
+        const errors = await validate(request);
+        if (errors.length > 0) {
+            const errorMessages = errors.map(error =>
+                Object.values(error.constraints || {}).join(', ')
+            );
+            throw new BadRequestException(errorMessages);
+        }
 
-    let totalLength = request.userPrompt.length;
-    if (request.systemPrompt) {
-      totalLength += request.systemPrompt.length;
-    }
-    if (request.messageHistory) {
-      totalLength += request.messageHistory.reduce(
-        (sum, msg) => sum + msg.content.length,
-        0,
-      );
-    }
+        // Trim message history if it exceeds 15 entries
+        if (request.messageHistory?.length > 15) {
+            this.logger.warn('Trimming message history to the last 15 entries');
+            request.messageHistory = request.messageHistory.slice(-15);
+        }
 
-    const maxLength =
-      request.config.provider === LLMProvider.ANTHROPIC ? 100000 : 32768;
-    if (totalLength > maxLength) {
-      throw new BadRequestException(
-        `Total prompt length exceeds ${maxLength} characters`,
-      );
-    }
+        // Calculate total length using messageHistory
+        const totalLength = request.messageHistory.reduce((sum, msg) => {
+            return sum + (msg.content?.length || 0); // Safely handle undefined content
+        }, 0);
+
+        // Determine max length based on provider
+        const maxLength = request.config.provider === OB1LLM.LLMProvider.OPENAI ? OB1LLM.MaxInputTokens.OPENAI : OB1LLM.MaxInputTokens.ANTHROPIC;
+        if (totalLength > maxLength) {
+            throw new BadRequestException(`Total prompt length exceeds ${maxLength} characters`);
+        }
 
     // Validate provider-specific configurations
     this.validateProviderConfig(request.config);
   }
 
-  private validateProviderConfig(config: LLMConfig): void {
-    const isAnthropicModel = Object.values(AnthropicModels).includes(
-      config.model as AnthropicModels,
-    );
-    const isOpenAIModel = Object.values(OpenAIModels).includes(
-      config.model as OpenAIModels,
-    );
+    private validateProviderConfig(config: OB1LLM.LLMConfig): void {
+        const isAnthropicModel = Object.values(OB1LLM.AnthropicModels).includes(config.model as OB1LLM.AnthropicModels);
+        const isOpenAIModel = Object.values(OB1LLM.OpenAIModels).includes(config.model as OB1LLM.OpenAIModels);
 
-    if (config.provider === LLMProvider.ANTHROPIC && !isAnthropicModel) {
-      throw new BadRequestException(
-        `Invalid model ${config.model} for Anthropic provider`,
-      );
+        if (config.provider === OB1LLM.LLMProvider.ANTHROPIC && !isAnthropicModel) {
+            throw new BadRequestException(`Invalid model ${config.model} for Anthropic provider`);
+        }
+
+        if (config.provider === OB1LLM.LLMProvider.OPENAI && !isOpenAIModel) {
+            throw new BadRequestException(`Invalid model ${config.model} for OpenAI provider`);
+        }
     }
 
-    if (config.provider === LLMProvider.OPENAI && !isOpenAIModel) {
-      throw new BadRequestException(
-        `Invalid model ${config.model} for OpenAI provider`,
-      );
-    }
-  }
+    private constructMessages(request: OB1LLM.LLMRequest): (OB1LLM.NonToolMessage | OB1LLM.ChatCompletionToolMessageParam)[] {
+        const messages: (OB1LLM.NonToolMessage | OB1LLM.ChatCompletionToolMessageParam)[] = [];
 
-  private constructMessages(request: LLMRequest): Message[] {
-    const messages: Message[] = [];
-
-    if (request.systemPrompt) {
-      messages.push({
-        role: 'system',
-        content: request.systemPrompt,
-        timestamp: new Date(),
-      });
-    }
+        if (request.systemPrompt) {
+            messages.push({
+                role: 'system',
+                content: request.systemPrompt,
+                //timestamp: new Date(),
+            });
+        }
 
     if (request.messageHistory?.length) {
       messages.push(...request.messageHistory);
     }
 
-    messages.push({
-      role: 'user',
-      content: request.userPrompt,
-      timestamp: new Date(),
-    });
+        // userPrompt will not be defined in the case of a tool call response
+        if (request.userPrompt) {
+            messages.push({
+                role: 'user',
+                content: request.userPrompt,
+                //timestamp: new Date(),
+            });
+        }
 
-    return messages;
-  }
-
-  // private async callOpenAI(request: LLMRequest, messages: Message[]): Promise<LLMResponse> {
-  //     const reqHeaders = { headers: createHeaders({ "traceID": `LLM-TRACE-${Date.now()}` }) }
-  //     const response = await this.openai.chat.completions.create({
-  //         model: request.config.model,
-  //         messages: messages.map(msg => ({
-  //             role: msg.role,
-  //             content: msg.content,
-  //         })),
-  //         temperature: request.config.temperature,
-  //         max_tokens: request.config.maxTokens,
-  //         top_p: request.config.topP,
-  //         frequency_penalty: request.config.frequencyPenalty,
-  //         presence_penalty: request.config.presencePenalty,
-  //     }
-  //         , reqHeaders);
-
-  //     return {
-  //         content: response.choices[0].message.content || '',
-  //         model: response.model,
-  //         provider: LLMProvider.OPENAI,
-  //         usage: {
-  //             promptTokens: response.usage.prompt_tokens,
-  //             completionTokens: response.usage.completion_tokens,
-  //             totalTokens: response.usage.total_tokens,
-  //         },
-  //         conversationId: request.conversationId,
-  //     };
-  // }
-
-  private async callOpenAIWithStructuredOutputNoTools(
-    request: LLMRequest,
-    messages: Message[],
-  ): Promise<LLMResponse> {
-    const reqHeaders = {
-      headers: createHeaders({
-        traceID: request.tracing.traceId || `AGENT-TRACE-${Date.now()}`,
-        ...(request.tracing.parentSpanId && {
-          parentSpanID: request.tracing.parentSpanId,
-        }),
-        ...(request.tracing.spanId && { spanID: request.tracing.spanId }),
-        ...(request.tracing.spanName && { spanName: request.tracing.spanName }),
-        metadata: { ...request.requestMetadata },
-      }),
-    };
-
-    const response = await this.openai.chat.completions.create(
-      {
-        model: request.config.model,
-        messages: messages.map((msg) => ({
-          role: msg.role,
-          content: msg.content,
-        })),
-        temperature: request.config.temperature,
-        max_tokens: request.config.maxTokens,
-        top_p: request.config.topP,
-        frequency_penalty: request.config.frequencyPenalty,
-        presence_penalty: request.config.presencePenalty,
-        response_format: request.response_format,
-      },
-      reqHeaders,
-    );
-
-    return {
-      content: response.choices[0].message.content || '',
-      model: response.model,
-      provider: LLMProvider.OPENAI,
-      usage: {
-        promptTokens: response.usage.prompt_tokens,
-        completionTokens: response.usage.completion_tokens,
-        totalTokens: response.usage.total_tokens,
-      },
-      conversationId: request.conversationId,
-    };
-  }
-
-  private async callOpenAIWithStructuredOutputWithTools(
-    request: LLMRequest,
-    messages: Message[],
-  ): Promise<LLMResponse> {
-    const reqHeaders = {
-      headers: createHeaders({
-        traceID: request.tracing.traceId || `AGENT-TRACE-${Date.now()}`,
-        ...(request.tracing.parentSpanId && {
-          parentSpanID: request.tracing.parentSpanId,
-        }),
-        ...(request.tracing.spanId && { spanID: request.tracing.spanId }),
-        ...(request.tracing.spanName && { spanName: request.tracing.spanName }),
-        metadata: { ...request.requestMetadata },
-      }),
-    };
-
-    const inputTools = request.inputTools.map((tool) => ({
-      function: {
-        name: tool.toolName,
-        description: tool.toolDescription,
-        parameters: tool.toolInputSchema,
-        strict: true,
-      },
-      type: 'function' as const, // explicitly set type as a literal
-    }));
-
-    const response = await this.openai.chat.completions.create(
-      {
-        model: request.config.model,
-        messages: messages.map((msg) => ({
-          role: msg.role,
-          content: msg.content,
-        })),
-        temperature: request.config.temperature,
-        max_tokens: request.config.maxTokens,
-        top_p: request.config.topP,
-        frequency_penalty: request.config.frequencyPenalty,
-        presence_penalty: request.config.presencePenalty,
-        response_format: request.response_format,
-        tool_choice: request.tool_choice || 'auto',
-        tools: inputTools,
-      },
-      reqHeaders,
-    );
-
-    return {
-      content: response.choices[0].message.content || '',
-      model: response.model,
-      provider: LLMProvider.OPENAI,
-      usage: {
-        promptTokens: response.usage.prompt_tokens,
-        completionTokens: response.usage.completion_tokens,
-        totalTokens: response.usage.total_tokens,
-      },
-      conversationId: request.conversationId,
-    };
-  }
-
-  async generateResponseWithStructuredOutputNoTools(
-    request: LLMRequest,
-  ): Promise<LLMResponse> {
-    // Validate functionInput as LLMRequest V1
-    try {
-      request = await this.validationPipe.transform(request, {
-        metatype: LLMRequest,
-        type: 'body',
-      });
-    } catch (validationError) {
-      if (validationError instanceof BadRequestException) {
-        const response = validationError.getResponse();
-        console.error(
-          'Validation Error Details:',
-          JSON.stringify(response, null, 2),
-        );
-      } else {
-        console.error('Unexpected Error:', validationError);
-      }
-      this.logger.error(
-        `Validation failed for functionInput: ${validationError.message}`,
-        validationError.stack,
-      );
-      throw new BadRequestException('Invalid functionInput format');
-    }
-    try {
-      await this.validateRequest(request);
-      const messages = this.constructMessages(request);
-
-      this.logger.debug(
-        `Sending request to ${request.config.provider} with config:`,
-        request.config,
-      );
-
-      switch (request.config.provider) {
-        // case LLMProvider.ANTHROPIC:
-        //     return await this.callAnthropic(request, messages);
-        case LLMProvider.OPENAI:
-          return await this.callOpenAIWithStructuredOutputNoTools(
-            request,
-            messages,
-          );
-        default:
-          throw new BadRequestException(
-            `Unsupported provider: ${request.config.provider}`,
-          );
-      }
-    } catch (error) {
-      this.logger.error(
-        `Error generating LLM response: ${error.message}`,
-        error.stack,
-      );
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-      throw new Error(`Failed to generate response: ${error.message}`);
-    }
-  }
-
-  async generateResponseWithStructuredOutputWithTools(
-    request: LLMRequest,
-  ): Promise<LLMResponse> {
-    // Validate functionInput as LLMRequest V1
-    try {
-      request = await this.validationPipe.transform(request, {
-        metatype: LLMRequest,
-        type: 'body',
-      });
-    } catch (validationError) {
-      this.logger.error(
-        `Validation failed for functionInput: ${validationError.message}`,
-        validationError.stack,
-      );
-      throw new BadRequestException('Invalid functionInput format');
-    }
-    try {
-      await this.validateRequest(request);
-      const messages = this.constructMessages(request);
-
-      this.logger.debug(
-        `Sending request to ${request.config.provider} with config:`,
-        request.config,
-      );
-
-      switch (request.config.provider) {
-        // case LLMProvider.ANTHROPIC:
-        //     return await this.callAnthropic(request, messages);
-        case LLMProvider.OPENAI:
-          return await this.callOpenAIWithStructuredOutputWithTools(
-            request,
-            messages,
-          );
-        default:
-          throw new BadRequestException(
-            `Unsupported provider: ${request.config.provider}`,
-          );
-      }
-    } catch (error) {
-      this.logger.error(
-        `Error generating LLM response: ${error.message}`,
-        error.stack,
-      );
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-      throw new Error(`Failed to generate response: ${error.message}`);
-    }
-  }
-
-  async generateResponseWithTools(request: LLMRequest, toolsInfo: OB1AgentTools[]): Promise<LLMResponse> {
-    if (request.config.provider !== LLMProvider.OPENAI) {
-      throw new BadRequestException(
-        'Tool integration is currently only supported with OpenAI',
-      );
+        return messages;
     }
 
-    try {
-      const messages = this.constructMessages(request);
+    private tryParseJSON(content: string): any {
+        try {
+            // Attempt to parse the string
+            return JSON.parse(content);
+        } catch (error) {
+            // Return the original content if parsing fails
+            return content;
+        }
+    }
 
-      const inputTools = toolsInfo.map((tool) => ({
-        function: {
-          name: tool.toolName,
-          description: tool.toolDescription,
-          parameters: tool.toolInputSchema,
-          strict: true,
+    private async callOpenAIWithStructuredOutputNoTools(request: OB1LLM.LLMRequest): Promise<OB1LLM.LLMResponse> {
+        this.logger.debug(`Calling OpenAI with structured output:\n${JSON.stringify(request, null, 2)}`);
+        const reqHeaders = {
+            headers: createHeaders({
+                "traceID": request.tracing.traceId || `AGENT-TRACE-${Date.now()}`,
+                ...request.tracing.parentSpanId && { "parentSpanID": request.tracing.parentSpanId },
+                ...request.tracing.spanId && { "spanID": request.tracing.spanId },
+                ...request.tracing.spanName && { "spanName": request.tracing.spanName },
+                "metadata": { ...(request.requestMetadata ?? { "_user": "NOT DEFINED" }) }
+            })
+
+        }
+
+        const response = await this.openai.chat.completions.create({
+            model: request.config.model,
+            messages: request.messageHistory,
+            temperature: request.config.temperature,
+            max_tokens: request.config.maxTokens,
+            top_p: request.config.topP,
+            frequency_penalty: request.config.frequencyPenalty,
+            presence_penalty: request.config.presencePenalty,
+            ...request.response_format && { response_format: request.response_format },
+            //response_format: request.response_format,
         },
-        type: 'function' as const, // explicitly set type as a literal
-      }));
-      console.log('Input tools is', JSON.stringify(inputTools))
+            reqHeaders);
 
-      const reqHeaders = {
-        headers: createHeaders({ traceID: `AGENT-TRACE-${Date.now()}` }),
-      };
+        request.messageHistory.push({
+            role: 'assistant',
+            content: response.choices[0].message.content,
+        });
 
-      // Initial completion with function definitions
-      const response = await this.openai.chat.completions.create(
-        {
-          model: request.config.model,
-          messages: messages,
-          tools: inputTools,
-          tool_choice: request.tool_choice || 'auto',
-          temperature: request.config.temperature,
-          max_tokens: request.config.maxTokens,
-          top_p: request.config.topP,
-          frequency_penalty: request.config.frequencyPenalty,
-          presence_penalty: request.config.presencePenalty,
-          response_format: request.response_format,
-        },
-        reqHeaders,
-      );
+        // If there are any tool calls, add them as well
+        if (response.choices[0].message.tool_calls && Array.isArray(response.choices[0].message.tool_calls)) {
+            for (const toolCall of response.choices[0].message.tool_calls) {
+                request.messageHistory.push({
+                    role: 'tool',
+                    content: `tool name ${toolCall.function.name} called with arguments ${toolCall.function.arguments}`,
+                    tool_call_id: toolCall.id,
+                });
+            }
+        }
 
-      const Response = response.choices[0].message;
-      console.log('Response from LLM post choice selection', Response)
 
-      // If no function was called, return the regular response
-      if (!Response.tool_calls) {
         return {
-          content: Response.content || '',
-          model: response.model,
-          provider: LLMProvider.OPENAI,
-          usage: {
-            promptTokens: response.usage.prompt_tokens,
-            completionTokens: response.usage.completion_tokens,
-            totalTokens: response.usage.total_tokens,
-          },
-          conversationId: request.conversationId,
+            content: this.tryParseJSON(response.choices[0].message.content || ''),
+            messageHistory: request.messageHistory,
+            model: response.model,
+            provider: OB1LLM.LLMProvider.OPENAI,
+            usage: {
+                promptTokens: response.usage.prompt_tokens,
+                completionTokens: response.usage.completion_tokens,
+                totalTokens: response.usage.total_tokens,
+            },
+            conversationId: request.conversationId,
         };
-      }
-
-      // Handle tool call
-      const toolCall = Response.tool_calls[0].function;
-      const tool = toolsInfo.find((t) => t.toolName === toolCall.name);
-
-      if (!tool) {
-        throw new Error(`Tool not found: ${toolCall.name}`);
-      }
-
-      return {
-        reqHeaders,
-        content: Response.content || '',
-        model: response.model,
-        provider: LLMProvider.OPENAI,
-        usage: {
-          promptTokens: response.usage.prompt_tokens,
-          completionTokens: response.usage.completion_tokens,
-          totalTokens: response.usage.total_tokens,
-        },
-        conversationId: request.conversationId,
-        toolCalls: [
-          {
-            name: toolCall.name,
-            arguments: JSON.parse(toolCall.arguments),
-            output: null, // The controller will fill this after executing the tool
-          },
-        ],
-      };
-    } catch (error) {
-      this.logger.error(
-        `Error generating LLM response with tools: ${error.message}`,
-        error.stack,
-      );
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-      throw new Error(
-        `Failed to generate response with tools: ${error.message}`,
-      );
     }
-  }
 
-  async generateFinalResponseWithToolResult(
-      request: LLMRequest,
-      tools: Tool[],
-      toolCall: ToolCallResult,
-      reqHeaders: any
-  ): Promise<LLMResponse> {
-      const messages = this.constructMessages(request);
+    private async callOpenAIWithStructuredOutputWithTools(
+        request: OB1LLM.LLMRequest,
+    ): Promise<OB1LLM.LLMResponse> {
 
-      // Add the function call and result to the message history
-      messages.push({
-          role: 'assistant',
-          content: '',
-          toolCall: {
-              name: toolCall.name,
-              arguments: toolCall.arguments
-          }
-      });
+        this.logger.log(`OpenAIRequest should have the message History: ${JSON.stringify(request, null, 2)}`);
+        // Log each message as well-formatted JSON
+        this.logger.log('Logging each message with the request:');
+        request.messageHistory.forEach((msg, index) => {
+            this.logger.log(`Message ${index + 1}: ${JSON.stringify(msg, null, 2)}`);
+        });
 
-      messages.push({
-          role: 'system', // Assume the tool response is from the system
-          content: JSON.stringify(toolCall.output),
-          toolName: toolCall.name
-      });
+        const reqHeaders = {
+            headers: createHeaders({
+                "traceID": request.tracing.traceId || `AGENT-TRACE-${Date.now()}`,
+                ...request.tracing.parentSpanId && { "parentSpanID": request.tracing.parentSpanId },
+                ...request.tracing.spanId && { "spanID": request.tracing.spanId },
+                ...request.tracing.spanName && { "spanName": request.tracing.spanName },
+                "metadata": { ...(request.requestMetadata ?? { "_user": "NOT DEFINED" }) }
+            })
 
-      // Convert tools to OpenAI function format
-      const functions = tools.map(tool => ({
-          name: tool.toolName,
-          description: tool.toolDescription,
-          parameters: tool.toolInputSchema,
-          // {
-          //     type: 'object',
-          //     properties: tool.inputSchema,
-          //     required: Object.keys(tool.inputSchema)
-          // }
-      }));
+        }
 
-      // const requestOptions = {
-      //     method: 'get',
-      //     // traceId: "1729",
-      //     // spanId: "11",
-      //     // spanName: "LLM Call"
-      // }
+        let inputTools = null;
 
-      // Get final response with function results
-      const completion = await this.openai.chat.completions.create({
-          model: request.config.model,
-          messages: messages,
-          functions,
-          temperature: request.config.temperature,
-          max_tokens: request.config.maxTokens,
-          top_p: request.config.topP,
-          frequency_penalty: request.config.frequencyPenalty,
-          presence_penalty: request.config.presencePenalty,
-          response_format: request.response_format,
-      }, reqHeaders);
+        if (request.inputTools) {
+            inputTools = request.inputTools.map(tool => {
+                // Validate required fields for each tool
+                if (!tool.toolExternalName || !tool.toolDescription || !tool.toolInputSchema) {
+                    throw new Error(
+                        `Invalid tool configuration: ${JSON.stringify(tool, null, 2)}`
+                    );
+                }
 
-      return {
-          content: completion.choices[0].message.content || '',
-          model: completion.model,
-          provider: LLMProvider.OPENAI,
-          usage: {
-              promptTokens: completion.usage.prompt_tokens,
-              completionTokens: completion.usage.completion_tokens,
-              totalTokens: completion.usage.total_tokens,
-          },
-          conversationId: request.conversationId,
-          toolCalls: [toolCall]
-      };
-  }
-  convertToOpenAIMessages(messages: Message[]) {
-    throw new Error('Method not implemented.');
-  }
+                // Map the tool to the required structure
+                return {
+                    function: {
+                        name: tool.toolExternalName,
+                        description: tool.toolDescription,
+                        parameters: tool.toolInputSchema,
+                        strict: true,
+                    },
+                    type: "function" as const // explicitly set type as a literal
+                };
+            });
+        }
 
-  async generateWithTools(
-      request: LLMRequest,
-  ): Promise<LLMResponse> {
-      // If no tools specified in config or non-OpenAI provider, use regular generation
-      if (!request.config.tools?.length || request.config.provider !== LLMProvider.OPENAI) {
-          return this.generateResponseWithStructuredOutputNoTools(request);
-      }
+        const response = await this.openai.chat.completions.create({
+            model: request.config.model,
+            messages: request.messageHistory,
+            temperature: request.config.temperature,
+            max_tokens: request.config.maxTokens,
+            top_p: request.config.topP,
+            frequency_penalty: request.config.frequencyPenalty,
+            presence_penalty: request.config.presencePenalty,
+            ...request.response_format && { response_format: request.response_format },
+            ...inputTools && {
+                tools: inputTools,
+                tool_choice: request.tool_choice || 'auto',
+            },
+        },
+            reqHeaders);
 
-      try {
-          // Fetch tool information
-          const toolsInfo = await this.toolsRepo.find({
-              where: request.config.tools.map(toolId => ({ toolId })),
-              select: [
-                  'toolId',
-                  'toolName',
-                  'toolDescription',
-                  'toolInputSchema',
-                  'toolOutputSchema',
-                  'toolStatus',
-              ]
-          });
+        this.logger.log(`OpenAIResponse: ${JSON.stringify(response, null, 2)}`);
 
-          // Validate that all requested tools were found
-          if (toolsInfo.length !== request.config.tools.length) {
-              const foundToolIds = toolsInfo.map(tool => tool.toolId);
-              const missingTools = request.config.tools.filter(id => !foundToolIds.includes(id));
-              throw new NotFoundException(`Tools not found: ${missingTools.join(', ')}`);
-          }
+        // Handle assistant response
+        // const assistantContent = response.choices[0].message.content ||
+        //     (response.choices[0].message.tool_calls ? 'calling a tool' : 'No content provided');
 
-          // Validate tool status
-          const unavailableTools = toolsInfo.filter(tool => tool.toolStatus !== 'active');
-          if (unavailableTools.length > 0) {
-              throw new BadRequestException(
-                  `Following tools are not available: ${unavailableTools.map(t => t.toolName).join(', ')}`
-              );
-          }
+        // request.messageHistory.push({
+        //     role: 'assistant',
+        //     content: assistantContent,
+        // });
 
-          // Get initial response with potential tool calls
-          const response = await this.generateResponseWithTools(request, toolsInfo);
+        // Remove duplicate tool calls from the response
+        if (response.choices[0].message.tool_calls && Array.isArray(response.choices[0].message.tool_calls)) {
+            // Deduplicate tool_calls based on tool name and arguments
+            const uniqueToolCalls = [];
+            const seenToolCalls = new Set();
 
-          // If no tool was called, return the response as is
-          if (!response.toolCalls?.length) {
-              return response;
-          }
+            for (const toolCall of response.choices[0].message.tool_calls) {
+                const uniqueKey = `${toolCall.function.name}:${toolCall.function.arguments}`;
+                if (!seenToolCalls.has(uniqueKey)) {
+                    seenToolCalls.add(uniqueKey);
+                    uniqueToolCalls.push(toolCall);
+                }
+            }
+            // Replace the original tool_calls with the deduplicated array
+            response.choices[0].message.tool_calls = uniqueToolCalls;
 
-          // Execute the tool call
-          const toolCall = response.toolCalls[0];
-          const tool = toolsInfo.find(t => t.toolName === toolCall.name);
+            request.messageHistory = [
+                ...request.messageHistory,
+                response.choices[0].message,
+            ];
 
-          if (!tool) {
-              throw new NotFoundException(`Tool not found: ${toolCall.name}`);
-          }
+            // request.messageHistory.push({
+            //     role: 'assistant',
+            //     content: response.choices[0].message.content,
+            //     tool_calls: uniqueToolCalls,
+            // });
 
-          const reqHeaders = response.reqHeaders;
-          console.log('Tool arguments are', toolCall.arguments)
 
-          try {
-              // Execute the tool
-              const toolResult = await this.pythonLambdaV1Service.invokeLambda(
-                  tool.toolId,
-                  toolCall.arguments
-              );
 
-              // Get final response incorporating the tool result
-              return await this.generateFinalResponseWithToolResult(
-                  request,
-                  toolsInfo,
-                  {
-                      ...toolCall,
-                      output: toolResult
-                  },
-                  reqHeaders
-              );
-          } catch (error) {
-              // Handle tool execution errors
-              this.logger.error(`Tool execution failed: ${error.message}`, error.stack);
-              throw new BadRequestException(`Tool execution failed: ${error.message}`);
-          }
-      } catch (error) {
-          // Rethrow validation and not found errors
-          if (error instanceof BadRequestException || error instanceof NotFoundException) {
-              throw error;
-          }
-          // Log and wrap other errors
-          this.logger.error(`Error in generate-with-tools: ${error.message}`, error.stack);
-          throw new BadRequestException(`Failed to process request: ${error.message}`);
-      }
-  }
+            // tool_calls added as part of assistant message
+            // // Add deduplicated tool calls to messageHistory
+            // for (const toolCall of uniqueToolCalls) {
+            //     request.messageHistory.push({
+            //         role: 'tool',
+            //         content: `tool name ${toolCall.function.name} called with arguments ${toolCall.function.arguments}`,
+            //         tool_call_id: toolCall.id,
+            //     });
+            // }
+        }
+
+        // // If there are any tool calls, add them as well
+        // if (response.choices[0].message.tool_calls && Array.isArray(response.choices[0].message.tool_calls)) {
+        //     for (const toolCall of response.choices[0].message.tool_calls) {
+        //         request.messageHistory.push({
+        //             role: 'tool',
+        //             content: `tool name ${toolCall.function.name} called with arguments ${toolCall.function.arguments}`,
+        //             tool_call_id: toolCall.id,
+        //         });
+        //     }
+        // }
+
+        this.logger.log(`OpenAIResponse: ${JSON.stringify(request.messageHistory, null, 2)}`);
+
+
+        return {
+            content: this.tryParseJSON(response.choices[0].message.content || ''),
+            messageHistory: request.messageHistory,
+            tool_calls: response.choices[0].message.tool_calls,
+            model: response.model,
+            provider: OB1LLM.LLMProvider.OPENAI,
+            usage: {
+                promptTokens: response.usage.prompt_tokens,
+                completionTokens: response.usage.completion_tokens,
+                totalTokens: response.usage.total_tokens,
+            },
+            conversationId: request.conversationId,
+        };
+    }
+
+    async generateResponseWithStructuredOutputNoTools(request: OB1LLM.LLMRequest): Promise<OB1LLM.LLMResponse> {
+        // Validate functionInput as OB1LLM.LLMRequest V1
+        try {
+            request = await this.validationPipe.transform(request, { metatype: OB1LLM.LLMRequest, type: 'body' });
+        } catch (validationError) {
+            this.logger.error(`Validation failed for functionInput: ${validationError.message}`, validationError.stack);
+            throw new BadRequestException('Invalid functionInput format');
+        }
+        try {
+
+            const messages = this.constructMessages(request); //also adds the messages to the messageHistory
+            request.messageHistory = messages;  // message already contains messageHistory
+
+            await this.validateRequest(request); // checks if max lenth is too long, also trims messageHistory
+
+      this.logger.debug(
+        `Sending request to ${request.config.provider} with config:`,
+        request.config,
+      );
+
+            switch (request.config.provider) {
+                // case OB1LLM.LLMProvider.ANTHROPIC:
+                //     return await this.callAnthropic(request, messages);
+                case OB1LLM.LLMProvider.OPENAI:
+                    return await this.callOpenAIWithStructuredOutputNoTools(request);
+                default:
+                    throw new BadRequestException(`Unsupported provider: ${request.config.provider}`);
+            }
+        } catch (error) {
+            this.logger.error(`Error generating LLM response: ${error.message}`, error.stack);
+            if (error instanceof BadRequestException) {
+                throw error;
+            }
+            throw new Error(`Failed to generate response: ${error.message}`);
+        }
+    }
+
+    async generateResponseWithStructuredOutputWithTools(request: OB1LLM.LLMRequest): Promise<OB1LLM.LLMResponse> {
+        // Validate functionInput as OB1LLM.LLMRequest V1
+        // try {
+        //     this.logger.log(`Request before validation: ${JSON.stringify(request, null, 2)}`);
+        //     request = await this.validationPipe.transform(request, { metatype: OB1LLM.LLMRequest, type: 'body' });
+        // } catch (validationError) {
+        //     this.logger.error(`Validation failed for functionInput: ${validationError.message}`, validationError.stack);
+        //     throw new BadRequestException('Invalid functionInput format');
+        // }
+        try {
+            this.logger.log(`Request after validation but before validateRequest: ${JSON.stringify(request, null, 2)}`);
+            const messages = this.constructMessages(request); //also adds the messages to the messageHistory
+            // with new messages on top
+            request.messageHistory = messages; // message now already contains messageHistory
+
+            await this.validateRequest(request);
+            this.logger.log(`Request after validateRequest: ${JSON.stringify(request, null, 2)}`);
+
+            switch (request.config.provider) {
+                // case OB1LLM.LLMProvider.ANTHROPIC:
+                //     return await this.callAnthropic(request, messages);
+                case OB1LLM.LLMProvider.OPENAI:
+                    //this.logger.log(`Request after validation: ${JSON.stringify(request, null, 2)}`);
+                    return await this.callOpenAIWithStructuredOutputWithTools(request);
+                default:
+                    throw new BadRequestException(`Unsupported provider: ${request.config.provider}`);
+            }
+        } catch (error) {
+            this.logger.error(`Error generating LLM response: ${error.message}`, error.stack);
+            if (error instanceof BadRequestException) {
+                throw error;
+            }
+            throw new Error(`Failed to generate response: ${error.message}`);
+        }
+    }
 }
-

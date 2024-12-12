@@ -1,18 +1,22 @@
 // src/prompts/prompt.module.ts
 import { Global, Module } from '@nestjs/common';
-import { PromptController } from './controllers/prompt.controller';
-import { PromptV1Service } from './services/promptV1.service';
-import { LLMModule } from '../llms/llms.module';
+import { PromptManagementV1Service } from './services/promptManagementV1.service';
+import { PromptExecutionV1Service } from './services/promptExecutionV1.service';
+import { PromptCategoryManagementV1Service } from './services/promptCategoryManagementV1.service';
 
 @Global()
 @Module({
-    imports: [
-        LLMModule,
-    ],
-    controllers: [PromptController],
+    imports: [],
+    controllers: [],
     providers: [
-        PromptV1Service
+        PromptManagementV1Service,
+        PromptExecutionV1Service,
+        PromptCategoryManagementV1Service
     ],
-    exports: [PromptV1Service]
+    exports: [
+        PromptManagementV1Service,
+        PromptExecutionV1Service,
+        PromptCategoryManagementV1Service
+    ]
 })
 export class PromptModule { }

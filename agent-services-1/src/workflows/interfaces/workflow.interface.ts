@@ -1,120 +1,150 @@
-// src/workflows/interfaces/workflow.interface.ts
-import { IsString, IsEnum, IsObject, IsOptional, IsUUID, IsArray, ValidateNested, MinLength, MaxLength, IsNotEmpty } from 'class-validator';
-import { Type } from 'class-transformer';
-import { WorkflowStatus } from '../entities/ob1-agent-workflow.entity';
+// /src/workflows/interfaces/workflow.interface.ts
 
-// Base DTO for common workflow properties
-export class WorkflowBaseDto {
-    @IsString()
-    @IsNotEmpty()
-    @MinLength(3)
-    @MaxLength(100)
-    workflowName: string;
+export namespace OB1Workflow {
+    export enum WorkflowLang {
+        TYPESCRIPT = 'TypeScript',
+        PYTHON = 'Python',
+        // Add other languages as needed
+    }
 
-    @IsString()
-    @IsNotEmpty()
-    @MinLength(10)
-    workflowDescription: string;
+    export enum WorkflowType {
+        TEMPORAL = 'Temporal',
+        LAMBDA = 'Lambda',
+        // Add other types as needed
+    }
 
-    @IsString()
-    @IsNotEmpty()
-    @MinLength(10)
-    workflowCode: string;
+    export interface CreateWorkflow {
+        workflowName: string;
+        workflowExternalName: string;
+        workflowDescription: string;
+        workflowCode: string;
+        workflowMockCode: string;
+        workflowInputSchema: Record<string, any>;
+        workflowOutputSchema: Record<string, any>;
+        workflowImports?: string[];
+        workflowLang: WorkflowLang;
+        workflowType: WorkflowType;
+        workflowCategoryId: string;
+        activitiesUsedByWorkflow: string[]; // Array of activity UUIDs
+        consultantOrgShortName: string;
+        personId: string;
+    }
 
-    @IsObject()
-    @IsOptional()
-    workflowInputSchema?: Record<string, any>;
+    export interface UpdateWorkflow {
+        // Fields that can be updated
+        workflowDescription?: string;
+        workflowCode?: string;
+        workflowMockCode?: string;
+        workflowInputSchema?: Record<string, any>;
+        workflowOutputSchema?: Record<string, any>;
+        workflowImports?: string[];
+        activitiesUsedByWorkflow?: string[]; // Array of activity UUIDs
+    }
 
-    @IsObject()
-    @IsOptional()
-    workflowOutputSchema?: Record<string, any>;
+    export interface WorkflowResponse {
+        workflowId: string;
+        workflowName: string;
+        workflowDescription: string;
+        workflowCode: string;
+        workflowMockCode: string;
+        workflowInputSchema: Record<string, any>;
+        workflowOutputSchema: Record<string, any>;
+        workflowImports?: string[];
+        workflowLang: WorkflowLang;
+        workflowType: WorkflowType;
+        workflowExternalName: string;
+        workflowCategory?: {
+            workflowCategoryId: string;
+            workflowCategoryName: string;
+            workflowCategoryCreatedByConsultantOrgShortName: string;
+        };
+        activitiesUsedByWorkflow: Array<{
+            activityId: string;
+            activityName: string;
+        }>;
+        workflowCreatedAt: Date;
+        workflowUpdatedAt: Date;
+        workflowCreatedByPersonId: string;
+        workflowCreatedByConsultantOrgShortName: string;
+        workflowVersion: number;
+    }
 
-    @IsObject()
-    @IsOptional()
-    workflowMetadata?: Record<string, any>;
-}
+    export interface WorkflowQueryParams {
+        consultantOrgShortName: string;
+        workflowCategoryId?: string;
+        search?: string;
+        page?: number;
+        limit?: number;
+    }
 
-// DTO for activity references within workflows
-export class ActivityReferenceDto {
-    @IsUUID()
-    activityId: string;
-}
+    export interface ServiceResponse<T> {
+        success: boolean;
+        data?: T;
+        error?: {
+            code: string;
+            message: string;
+            details?: any;
+        };
+    }
 
-// DTO for creating new workflows
-export class CreateWorkflowDto extends WorkflowBaseDto {
-    @IsArray()
-    @ValidateNested({ each: true })
-    @Type(() => ActivityReferenceDto)
-    @IsOptional()
-    workflowActivities?: ActivityReferenceDto[];
-}
+    export interface PaginatedResponse<T> {
+        items: T[];
+        total: number;
+        page: number;
+        limit: number;
+        totalPages: number;
+    }
 
-// DTO for updating existing workflows
-export class UpdateWorkflowDto extends WorkflowBaseDto {
-    @IsEnum(WorkflowStatus)
-    @IsOptional()
-    workflowStatus?: WorkflowStatus;
+    export interface WorkflowUpdateResult {
+        previousVersion: WorkflowResponse;
+        updatedVersion: WorkflowResponse;
+        changes: string[];
+    }
 
-    @IsArray()
-    @ValidateNested({ each: true })
-    @Type(() => ActivityReferenceDto)
-    @IsOptional()
-    workflowActivities?: ActivityReferenceDto[];
-}
+    //workflowCaetegory
 
-// DTO for filtering workflow lists
-export class ListWorkflowsDto {
-    @IsEnum(WorkflowStatus)
-    @IsOptional()
-    workflowStatus?: WorkflowStatus;
+    export interface CreateCategory {
+        workflowCategoryName: string;
+        workflowCategoryDescription: string;
+        consultantOrgShortName: string;
+        personId: string;
+    }
 
-    @IsUUID()
-    @IsOptional()
-    activityId?: string;
-}
+    export interface GetCategory {
+        consultantOrgShortName: string;
+    }
 
-// DTO for workflow execution metrics update
-export class UpdateWorkflowMetricsDto {
-    @IsUUID()
-    workflowId: string;
+    export interface UpdateCategory {
+        workflowCategoryName?: string;
+        workflowCategoryDescription?: string;
+    }
 
-    @IsNotEmpty()
-    executionTime: number;
-}
+    export interface CategoryResponse {
+        workflowCategoryId: string;
+        workflowCategoryName: string;
+        workflowCategoryDescription: string;
+        workflowCategoryCreatedByPersonId: string;
+        workflowCategoryCreatedByConsultantOrgShortName: string;
+    }
 
-// Response DTO for workflow operations
-export class WorkflowResponseDto {
-    @IsUUID()
-    workflowId: string;
+    // Other interfaces...
 
-    @IsString()
-    workflowName: string;
+    export interface ServiceResponse<T> {
+        success: boolean;
+        data?: T;
+        error?: {
+            code: string;
+            message: string;
+            details?: any;
+        };
+    }
 
-    @IsString()
-    workflowDescription: string;
-
-    @IsEnum(WorkflowStatus)
-    workflowStatus: WorkflowStatus;
-
-    @IsArray()
-    @ValidateNested({ each: true })
-    @Type(() => ActivityReferenceDto)
-    workflowActivities: ActivityReferenceDto[];
-
-    @IsObject()
-    workflowInputSchema: Record<string, any>;
-
-    @IsObject()
-    workflowOutputSchema: Record<string, any>;
-
-    workflowExecutionCount: number;
-
-    workflowAvgExecutionTime: number;
-
-    workflowCreatedAt: Date;
-
-    workflowUpdatedAt: Date;
-
-    @IsObject()
-    workflowMetadata: Record<string, any>;
+    export interface WorkflowTestResponse {
+        workflowResult: any;
+        workflowResponseValidationTestResult: {
+            isValid: boolean;
+            errors: string[];
+        };
+        workflowResponseValidationTestPass: boolean;
+    }
 }

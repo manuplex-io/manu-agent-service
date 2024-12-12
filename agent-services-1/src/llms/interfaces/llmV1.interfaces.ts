@@ -51,7 +51,7 @@ export class LLMConfigV1 {
     @IsOptional()
     @IsNumber()
     @Min(1)
-    @Max(4096)
+    @Max(16384)
     maxTokens?: number = 1000;
 
     @IsOptional()
@@ -139,7 +139,7 @@ export class ToolMessageV1 {
 export class LLMRequestV1 {
     @IsOptional()
     @IsString()
-    @Length(1, 4096)
+    @Length(1, 32768)
     systemPrompt?: string;
 
     @IsString()
