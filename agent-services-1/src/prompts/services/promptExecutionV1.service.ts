@@ -448,6 +448,7 @@ export class PromptExecutionV1Service {
     async executePromptBase(
         promptRequest: OB1Prompt.ExecutePromptGlobalBase,
     ): Promise<OB1LLM.LLMResponse> {
+        console.log("executePromptBase",promptRequest)
         const startTime = Date.now();
         let llmCallCount = 0;
         let toolCallCount = 0;
@@ -611,6 +612,7 @@ export class PromptExecutionV1Service {
         promptRequest: OB1Prompt.ExecutePromptWithoutUserPrompt,
     ): Promise<OB1LLM.LLMResponse> {
         // Get the prompt
+        console.log("executePromptWithoutUserPromptWithTools",promptRequest)
         const prompt = await this.promptsRepo.findOne({ where: { promptId: promptRequest.promptId } });
         if (!prompt) {
             throw new NotFoundException(`Prompt with ID ${promptRequest.promptId} not found`);
@@ -649,7 +651,7 @@ export class PromptExecutionV1Service {
         };
 
 
-
+        console.log("promptBaseRequest",promptBaseRequest)
         const Response = await this.executePromptBase(promptBaseRequest);
         return Response;
 
