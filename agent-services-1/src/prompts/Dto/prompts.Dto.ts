@@ -184,6 +184,7 @@ export namespace OB1PromptDto {
         @IsOptional()
         @IsArray()
         @ValidateNested({ each: true })
+        @Type(() => OB1LLM.NonToolMessage) // Use correct type here
         @Expose() 
         messageHistory?: (OB1LLM.NonToolMessage | OB1LLM.ChatCompletionToolMessageParam)[];
 
