@@ -645,6 +645,7 @@ export class PromptExecutionV1Service {
             availableTools: availableTools,
             systemPrompt: processedSystemPrompt,
             userPrompt: processedUserPrompt,
+            messageHistory:promptRequest.messageHistory
         };
 
 
