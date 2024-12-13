@@ -6,7 +6,6 @@ import { OB1Prompt } from '../interfaces/prompt.interface';
 import { OB1LLM } from '../../llms/interfaces/llmV2.interfaces';
 import { DynamicObjectValidator } from './DynamicObject.validator';
 
-
 export namespace OB1PromptDto {
 
     export class VariableDefinitionDto {
@@ -168,6 +167,11 @@ export namespace OB1PromptDto {
         @IsString()
         userPrompt: string;
 
+        @IsOptional()
+        @IsArray()
+        @ValidateNested({ each: true })
+        messageHistory?: (OB1LLM.NonToolMessage | OB1LLM.ChatCompletionToolMessageParam)[];
+
     }
 
     export class ExecutePromptWithoutUserPromptDto extends ExecutePromptBaseDto {
@@ -176,6 +180,11 @@ export namespace OB1PromptDto {
         userPromptVariables: {
             [key: string]: any;
         };
+
+        @IsOptional()
+        @IsArray()
+        @ValidateNested({ each: true })
+        messageHistory?: (OB1LLM.NonToolMessage | OB1LLM.ChatCompletionToolMessageParam)[];
 
     }
 

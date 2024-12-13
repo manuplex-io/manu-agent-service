@@ -43,6 +43,8 @@ export namespace OB1Prompt {
             maxTotalExecutionTime?: number;
         };
 
+        messageHistory?: (OB1LLM.NonToolMessage | OB1LLM.ChatCompletionToolMessageParam)[];
+
     }
 
     export interface ExecutePromptWithToolsBase {
@@ -69,7 +71,11 @@ export namespace OB1Prompt {
     }
 
     export interface ExecutePromptWithoutUserPrompt extends ExecutePromptWithToolsBase {
+        
         userPromptVariables: Record<string, any>;
+
+        messageHistory?: (OB1LLM.NonToolMessage | OB1LLM.ChatCompletionToolMessageParam)[];
+        
     }
 
     export class VariableDefinitionDto {
