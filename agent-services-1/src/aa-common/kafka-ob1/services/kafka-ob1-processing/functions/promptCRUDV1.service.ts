@@ -133,6 +133,7 @@ export class PromptCRUDV1 {
                         requestId: requestId,
                         requestMetadata: requestMetadata
                     };
+                    console.log("newCRUDBody",newCRUDBody)
                     const validatedBody = await this.validationPipe.transform(
                         newCRUDBody,
                         { metatype: OB1PromptDto.ExecutePromptWithoutUserPromptDto, type: 'body' }
