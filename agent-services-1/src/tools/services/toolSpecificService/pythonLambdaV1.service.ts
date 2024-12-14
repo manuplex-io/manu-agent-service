@@ -20,6 +20,7 @@ import { OB1AgentToolExecutionLog } from '../../entities/ob1-agent-toolExecution
 
 import { OB1Tool } from '../../interfaces/tools.interface';
 import { OB1Lambda } from 'src/tools/interfaces/Lambda.interface';
+import { error } from 'console';
 
 @Injectable()
 export class PythonLambdaV1Service {
@@ -356,14 +357,21 @@ def lambda_handler(event, context):
     private validateSchema(input: any, schema: object, inputDescription: string): void {
         if (schema && Object.keys(schema).length > 0) {
             this.logger.debug(`Validating ${inputDescription} against schema: ${JSON.stringify(schema)}`);
-
+            
+            try{
             const validate = this.ajvWithWhitlist.compile(schema);
             const isValid = validate(input);
+            
+        
             console.log("env valid check", isValid)
             if (!isValid) {
                 this.logger.error(`Validation errors for ${inputDescription}: ${JSON.stringify(validate.errors)}`);
                 throw new BadRequestException(`Invalid ${inputDescription}: ${JSON.stringify(validate.errors)}`);
             }
+        }
+            catch (error) {
+                console.log('Error generated while validating', error)
+             }
             // At this point, `input` should only contain keys whitelisted by the schema
             // due to Ajv's removeAdditional setting.
         }
