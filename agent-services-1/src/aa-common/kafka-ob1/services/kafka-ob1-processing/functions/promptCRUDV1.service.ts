@@ -133,7 +133,6 @@ export class PromptCRUDV1 {
                         requestId: requestId,
                         requestMetadata: requestMetadata
                     };
-                    console.log("newCRUDBody",newCRUDBody)
                     const validatedBody = await this.validationPipe.transform(
                         newCRUDBody,
                         { metatype: OB1PromptDto.ExecutePromptWithoutUserPromptDto, type: 'body' }
@@ -149,7 +148,6 @@ export class PromptCRUDV1 {
                     // };
 
                     // this.logger.log(`CRUDPromptRoute.EXECUTE_WITHOUT_USER_PROMPT: request:\n${JSON.stringify(request, null, 2)}`);
-                    console.log("validated body",validatedBody)
                     return await this.promptExecutionV1Service.executePromptWithoutUserPromptWithTools(validatedBody);
                 }
 

@@ -448,7 +448,6 @@ export class PromptExecutionV1Service {
     async executePromptBase(
         promptRequest: OB1Prompt.ExecutePromptGlobalBase,
     ): Promise<OB1LLM.LLMResponse> {
-        console.log("executePromptBase",promptRequest)
         const startTime = Date.now();
         let llmCallCount = 0;
         let toolCallCount = 0;

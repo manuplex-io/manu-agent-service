@@ -359,7 +359,7 @@ def lambda_handler(event, context):
 
             const validate = this.ajvWithWhitlist.compile(schema);
             const isValid = validate(input);
-
+            console.log("env valid check", isValid)
             if (!isValid) {
                 this.logger.error(`Validation errors for ${inputDescription}: ${JSON.stringify(validate.errors)}`);
                 throw new BadRequestException(`Invalid ${inputDescription}: ${JSON.stringify(validate.errors)}`);
@@ -390,7 +390,7 @@ def lambda_handler(event, context):
             this.validateSchema(request.toolInputENVVariables, tool.toolENVinputSchema, 'environment variable input');
         }
 
-
+        console.log("env variable validation passed")
         // Validate tool input if a schema is provided
         if (tool.toolInputSchema && Object.keys(tool.toolInputSchema).length > 0) {
             this.validateSchema(request.toolInputVariables, tool.toolInputSchema, 'tool input');
