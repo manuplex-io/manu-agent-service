@@ -31,9 +31,9 @@ services:
         max-file: "2" # Keep 3 files
 
 networks:
-  OB-dev-net1-overlay:
+  MP-dev-net1-overlay:
     external: true
-  OB-prod-net1-overlay:
+  MP-prod-net1-overlay:
     external: true
 
 volumes:

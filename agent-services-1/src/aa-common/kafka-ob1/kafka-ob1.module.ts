@@ -23,7 +23,7 @@ import { LLMCRUDV1 } from './services/kafka-ob1-processing/functions/llmCRUDV1.s
           options: {
             client: {
               clientId: `${configService.get<string>('SERVICE_ID')}-client`,
-              brokers: ['kafka-server-1.orangebox-uswest-2.local:9092'],
+              brokers: ['kafka-server-1.manuplex-uswest-2.local:9092'],
             },
             consumer: {
               groupId: `${configService.get<string>('SERVICE_NAME')}-group`,

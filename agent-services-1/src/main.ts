@@ -15,7 +15,7 @@ async function bootstrap() {
     transport: Transport.KAFKA,
     options: {
       client: {
-        brokers: ['kafka-server-1.orangebox-uswest-2.local:9092'], // Kafka broker address
+        brokers: ['kafka-server-1.manuplex-uswest-2.local:9092'], // Kafka broker address
         // connectionTimeout: 3000,
         // requestTimeout: 60000,
       },
