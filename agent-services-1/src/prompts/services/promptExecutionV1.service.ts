@@ -218,7 +218,7 @@ export class PromptExecutionV1Service {
 
     private async executeToolCall(Request: {
         toolCall: OB1LLM.ChatCompletionMessageToolCall,
-        toolInputENVVariables?: Record<string, any>;
+        toolENVInputVariables?: Record<string, any>;
         toolInfo: OB1AgentTools,
         tracing: OB1LLM.promptTracing,
         timeout: number,
@@ -228,7 +228,7 @@ export class PromptExecutionV1Service {
         const toolRequest: OB1Tool.ToolRequest = {
             toolId: Request.toolInfo.toolId,
             toolInputVariables: JSON.parse(Request.toolCall.function.arguments), // Convert to an object 
-            toolInputENVVariables: Request?.toolInputENVVariables,
+            toolENVInputVariables: Request?.toolENVInputVariables,
             requestingServiceId: Request.requestMetadata?.sourceService || 'missing-SourceService'
         };
 
@@ -255,7 +255,7 @@ export class PromptExecutionV1Service {
 
     private async executeParallelToolCalls(Request: {
         toolCalls: OB1LLM.ChatCompletionMessageToolCall[],
-        toolInputENVVariables?: Record<string, any>;
+        toolENVInputVariables?: Record<string, any>;
         tracing: OB1LLM.promptTracing,
         timeout: number,
         requestMetadata: { [key: string]: any }
@@ -323,7 +323,7 @@ export class PromptExecutionV1Service {
 
                 const toolRequest = {
                     toolCall,
-                    toolInputENVVariables: Request?.toolInputENVVariables,
+                    toolENVInputVariables: Request?.toolENVInputVariables,
                     toolInfo,
                     tracing: toolTracing,
                     timeout: Request.timeout,
@@ -484,7 +484,6 @@ export class PromptExecutionV1Service {
                     ...promptRequest.llmConfig,
                 },
                 ...availableTools && { inputTools: availableTools, },
-                messageHistory : promptRequest.messageHistory
                 //inputTools: availableTools,
             };
             this.logger.log(`1. LLM Request (check Tools):\n${JSON.stringify(llmRequest, null, 2)}`);
@@ -530,7 +529,7 @@ export class PromptExecutionV1Service {
                     },
                     timeout: promptRequest.promptConfig?.toolTimeout || OB1Prompt.DefaultPromptConfig.DEFAULT_MAX_TOOL_EXECUTION_TIME,
                     requestMetadata: promptRequest.requestMetadata,
-                    toolInputENVVariables: promptRequest.toolInputENVVariables,
+                    toolENVInputVariables: promptRequest.toolENVInputVariables,
                 }
                 );
                 toolResults = { ...toolResults, ...newToolResults };
@@ -611,7 +610,6 @@ export class PromptExecutionV1Service {
         promptRequest: OB1Prompt.ExecutePromptWithoutUserPrompt,
     ): Promise<OB1LLM.LLMResponse> {
         // Get the prompt
-        console.log("executePromptWithoutUserPromptWithTools",promptRequest)
         const prompt = await this.promptsRepo.findOne({ where: { promptId: promptRequest.promptId } });
         if (!prompt) {
             throw new NotFoundException(`Prompt with ID ${promptRequest.promptId} not found`);
@@ -646,11 +644,10 @@ export class PromptExecutionV1Service {
             availableTools: availableTools,
             systemPrompt: processedSystemPrompt,
             userPrompt: processedUserPrompt,
-            messageHistory:promptRequest.messageHistory
         };
 
 
-        console.log("promptBaseRequest",promptBaseRequest)
+
         const Response = await this.executePromptBase(promptBaseRequest);
         return Response;
 

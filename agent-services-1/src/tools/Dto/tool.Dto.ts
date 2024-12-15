@@ -67,6 +67,10 @@ export namespace OB1ToolDto {
         @IsObject()
         toolOutputSchema: Record<string, any>;
 
+        @IsOptional()
+        @IsObject()
+        toolENVInputSchema: Record<string, any>;
+
         @IsObject()
         toolConfig: Record<string, any>;
 
@@ -131,7 +135,7 @@ export namespace OB1ToolDto {
         toolType: OB1AgentTools['toolType'];
     }
 
-    export class UpdateToolDto extends CreateToolDto {
+    export class UpdateToolDto {
         @IsOptional()
         @IsString()
         toolName: string;
@@ -143,16 +147,90 @@ export namespace OB1ToolDto {
         @IsOptional()
         @IsEnum(OB1Tool.ToolType)
         toolType: OB1Tool.ToolType;
+
+        @IsOptional()
+        @IsEnum(OB1Tool.ToolStatus)
+        toolStatus?: OB1Tool.ToolStatus;
+
+        @IsOptional()
+        @IsObject()
+        toolInputSchema: Record<string, any>;
+
+        @IsOptional()
+        @IsObject()
+        toolOutputSchema: Record<string, any>;
+
+        @IsOptional()
+        @IsObject()
+        toolConfig: Record<string, any>;
+
+        @IsOptional()
+        @IsString()
+        toolCode?: string;
+
+        @IsOptional()
+        @IsString()
+        toolPythonRequirements?: string;
+
+        @IsOptional()
+        @IsString()
+        toolIdentifier?: string;
+
+        @IsOptional()
+        @IsArray()
+        @IsString({ each: true })
+        toolTags: string[];
+
+        @IsOptional()
+        @IsArray()
+        @IsString({ each: true })
+        @ArrayMinSize(0)
+        toolAllowedAgents: string[];
+
+        @IsOptional()
+        @ValidateNested()
+        @Type(() => UsageQuotaDto)
+        toolUsageQuota?: UsageQuotaDto;
+
+        @IsOptional()
+        @IsString()
+        toolExamples?: string;
+
+        @IsOptional()
+        @IsObject()
+        toolMetadata?: Record<string, any>;
     }
 
     export class ToolQueryParamsDto {
+        @IsOptional()
+        @IsEnum(OB1Tool.ToolStatus)
         toolStatus?: OB1Tool.ToolStatus;
+
+        @IsOptional()
+        @IsString()
         toolCategoryId?: string;
+
+        @IsOptional()
+        @IsArray()
+        @IsString({ each: true })
         toolTags?: string[];
+
+        @IsOptional()
+        @IsEnum(OB1Tool.ToolType)
         toolType?: OB1Tool.ToolType;
+
+        @IsOptional()
+        @IsString()
         search?: string;
+
+        @IsOptional()
+        @IsNumber()
         page?: number;
+
+        @IsOptional()
+        @IsNumber()
         limit?: number;
+
         @IsUUID()
         personId: string;
 
@@ -257,7 +335,7 @@ export namespace OB1ToolDto {
 
         @IsOptional()
         @IsObject()
-        toolInputENVVariables?: Record<string, any>;
+        toolENVInputVariables?: Record<string, any>;
     }
 
     export class ToolResponse {

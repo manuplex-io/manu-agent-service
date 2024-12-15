@@ -19,7 +19,7 @@ export class PromptManagementV1Service {
         @InjectRepository(OB1AgentPromptExecutionLog) private executionLogRepo: Repository<OB1AgentPromptExecutionLog>,
     ) { }
 
-    async createPrompt(promptData: OB1Prompt.CreatePrompt): Promise<any> {
+    async createPrompt(promptData: OB1Prompt.CreatePrompt): Promise<OB1Prompt.ServiceResponse<OB1Prompt.PromptResponse>> {
         try {
             const category = await this.promptCategoryRepository.findOne({
                 where: {
@@ -31,7 +31,7 @@ export class PromptManagementV1Service {
             if (promptData.promptCategoryId && !category) {
                 throw new BadRequestException({
                     message: 'Category not found',
-                    code: 'CATEGORY_NOT_FOUND',
+                    code: 'CATEGORY_NOT_FOUND'
                 });
             }
 
@@ -52,62 +52,91 @@ export class PromptManagementV1Service {
                 data: this.mapToPromptResponse(savedPrompt),
             };
         } catch (error) {
+            this.logger.error(`Failed to create prompt: ${error.message}`, error.stack);
             throw new BadRequestException({
                 message: 'Failed to create prompt',
+                code: 'PROMPT_CREATION_FAILED',
                 errorSuperDetails: { ...error },
             });
-
         }
     }
 
-    async updatePrompt(promptId: string, promptData: Partial<OB1AgentPrompts>): Promise<OB1AgentPrompts> {
-        const prompt = await this.promptsRepo.findOne({ where: { promptId } });
-        if (!prompt) {
-            throw new NotFoundException(`Prompt with ID ${promptId} not found`);
-        }
+    async updatePrompt(promptId: string, promptData: OB1Prompt.UpdatePrompt): Promise<OB1Prompt.ServiceResponse<OB1Prompt.PromptUpdateResult>> {
+        try {
+            this.logger.log(`Updating prompt: ${JSON.stringify(promptData, null, 2)}`);
+            // Fetch existing prompt
+            const prompt = await this.promptsRepo.findOne({
+                where: { promptId },
+                relations: ['promptCategory']
+            });
 
-        Object.assign(prompt, promptData);
-        return await this.promptsRepo.save(prompt);
+            if (!prompt) {
+                throw new NotFoundException({
+                    message: `Prompt with ID ${promptId} not found`,
+                    code: 'PROMPT_NOT_FOUND'
+                });
+            }
+
+            const newPromptData = {
+                ...prompt,
+                ...promptData,
+                promptId: undefined
+            }
+
+            //Keep the createdAt as it is
+            const newPrompt = this.promptsRepo.create({
+                ...newPromptData,
+                promptCreatedByConsultantOrgShortName: prompt.promptCreatedByConsultantOrgShortName,
+                promptCreatedByPersonId: prompt.promptCreatedByPersonId,
+                promptCategory: prompt.promptCategory,
+                promptCreatedAt: prompt.promptCreatedAt
+            })
+
+            const savedPrompt = await this.promptsRepo.save(newPrompt);
+
+            return {
+                success: true,
+                data: {
+                    previousVersion: this.mapToPromptResponse(prompt),
+                    updatedVersion: this.mapToPromptResponse(savedPrompt),
+                    changes: Object.keys(promptData)
+                }
+            };
+
+        } catch (error) {
+            this.logger.error(`Failed to update prompt: ${error.message}`, error.stack);
+            throw new BadRequestException({
+                message: 'Failed to update prompt',
+                code: 'PROMPT_UPDATE_FAILED',
+                errorSuperDetails: { ...error }
+            });
+        }
     }
 
-    // async getPrompt(promptId: string): Promise<OB1AgentPrompts> {
-    //     const prompt = await this.promptsRepo.findOne({ where: { promptId } });
-    //     if (!prompt) {
-    //         throw new NotFoundException(`Prompt with ID ${promptId} not found`);
-    //     }
-    //     return prompt;
-    // }
-
-    async deletePrompt(promptId: string): Promise<any> {
+    async deletePrompt(promptId: string): Promise<OB1Prompt.ServiceResponse<void>> {
         try {
             const prompt = await this.promptsRepo.findOne({ where: { promptId } });
 
             if (!prompt) {
-                return {
-                    success: false,
-                    error: {
-                        code: 'PROMPT_NOT_FOUND',
-                        message: `Prompt with ID ${promptId} not found`,
-                    },
-                };
+                throw new NotFoundException({
+                    message: `Prompt with ID ${promptId} not found`,
+                    code: 'PROMPT_NOT_FOUND'
+                });
             }
 
             await this.promptsRepo.remove(prompt);
             return {
-                success: true,
+                success: true
             };
         } catch (error) {
-            return {
-                success: false,
-                error: {
-                    code: 'PROMPT_DELETE_FAILED',
-                    message: 'Failed to delete prompt',
-                    details: { error: error.message },
-                },
-            };
+            this.logger.error(`Failed to delete prompt: ${error.message}`, error.stack);
+            throw new BadRequestException({
+                message: 'Failed to delete prompt',
+                code: 'PROMPT_DELETE_FAILED', 
+                errorSuperDetails: { ...error },
+            });
         }
     }
-
 
     async getPrompts(
         filters: OB1Prompt.WorkflowQueryParams
@@ -156,29 +185,33 @@ export class PromptManagementV1Service {
             this.logger.error(`Failed to fetch prompts: ${error.message}`, error.stack);
             throw new BadRequestException({
                 message: 'Failed to fetch prompts',
+                code: 'PROMPT_FETCH_FAILED',
                 errorSuperDetails: { ...error },
             });
         }
     }
 
-    async getPrompt(promptId: string): Promise<OB1Prompt.ServiceResponse<OB1Prompt.PromptResponse>> {
+    async getPrompt(promptId: string): Promise<OB1Prompt.ServiceResponse<OB1Prompt.PromptResponseDto>> {
         try{
             const prompt = await this.promptsRepo.findOne({ where: { promptId } });
             if (!prompt) {
-                throw new NotFoundException(`Prompt with ID ${promptId} not found`);
+                throw new NotFoundException({
+                    message: `Prompt with ID ${promptId} not found`,
+                    code: 'PROMPT_NOT_FOUND'
+                });
             }
             return {
                 success: true,
-                data: this.mapToPromptResponse(prompt),
+                data: prompt,
             };
         }catch (error){
             this.logger.error(`Failed to fetch prompt: ${error.message}`, error.stack);
             throw new BadRequestException({
                 message: 'Failed to fetch prompt',
+                code: 'PROMPT_FETCH_FAILED',
                 errorSuperDetails: { ...error },
             });
         }
-
     }
 
     private mapToPromptResponse(prompt: OB1AgentPrompts): OB1Prompt.PromptResponse {
@@ -191,26 +224,14 @@ export class PromptManagementV1Service {
                 ? {
                       promptCategoryId: prompt.promptCategory.promptCategoryId,
                       promptCategoryName: prompt.promptCategory.promptCategoryName,
-                      promptCategoryCreatedByConsultantOrgShortName:
-                          prompt.promptCategory.promptCategoryCreatedByConsultantOrgShortName,
                   }
                 : undefined,
             promptStatus: prompt.promptStatus,
-            promptVersion: prompt.promptVersion,
-            promptCreatedByConsultantOrgShortName: prompt.promptCreatedByConsultantOrgShortName,
-            promptCreatedByPersonId: prompt.promptCreatedByPersonId,
-            systemPrompt: prompt.systemPrompt,
-            userPrompt: prompt.userPrompt, // Can be undefined based on the interface
-            systemPromptVariables: prompt.systemPromptVariables,
-            userPromptVariables: prompt.userPromptVariables,
-            promptDefaultConfig: prompt.promptDefaultConfig,
             promptAvailableTools: prompt.promptAvailableTools,
             promptToolChoice: prompt.promptToolChoice, // Optional as per the interface
             promptCreatedAt: prompt.promptCreatedAt,
             promptUpdatedAt: prompt.promptUpdatedAt,
             promptExecutionCount: prompt.promptExecutionCount,
-            promptResponseFormat: prompt.promptResponseFormat, // Optional as per the interface
-            promptAvgResponseTime: prompt.promptAvgResponseTime,
         };
     }
 }

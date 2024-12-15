@@ -70,9 +70,9 @@ export class PromptCategoryManagementV1Service {
 
     private mapToCategoryResponse(category: OB1AgentPromptCategory): OB1Prompt.CategoryResponse {
         return {
-            id: category.promptCategoryId,
-            name: category.promptCategoryName,
-            description: category.promptCategoryDescription,
+            promptCategoryId: category.promptCategoryId,
+            promptCategoryName: category.promptCategoryName,
+            promptCategoryDescription: category.promptCategoryDescription,
             promptCategoryCreatedByPersonId: category.promptCategoryCreatedByPersonId,
             promptCategoryCreatedByConsultantOrgShortName: category.promptCategoryCreatedByConsultantOrgShortName,
         };

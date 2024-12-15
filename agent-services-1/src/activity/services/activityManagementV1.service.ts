@@ -9,6 +9,7 @@ import { OB1AgentActivityCategory } from '../entities/ob1-agent-activityCategory
 import { OB1Activity } from '../interfaces/activity.interface';
 
 import { ActivityTestingV1Service } from './activityTestingV1.service';
+import { TSValidationOb1Service } from '../../aa-common/ts-validation-ob1/services/ts-validation-ob1.service';
 
 @Injectable()
 export class ActivityManagementV1Service {
@@ -17,6 +18,7 @@ export class ActivityManagementV1Service {
         @InjectRepository(OB1AgentActivities) private readonly activityRepository: Repository<OB1AgentActivities>,
         @InjectRepository(OB1AgentActivityCategory) private readonly activityCategoryRepository: Repository<OB1AgentActivityCategory>,
         private readonly activityTestingV1Service: ActivityTestingV1Service,
+        private readonly tsValidationOb1Service: TSValidationOb1Service,
     ) { }
 
     // Create Activity
@@ -32,17 +34,22 @@ export class ActivityManagementV1Service {
                 : null;
 
             if (activity.activityCategoryId && !category) {
-                return {
-                    success: false,
-                    error: {
-                        code: 'CATEGORY_NOT_FOUND',
-                        message: 'Category not found',
-                    },
-                };
+                throw new BadRequestException({
+                    message: 'Category not found',
+                    code: 'CATEGORY_NOT_FOUND'
+                });
             }
 
             // Validate activity using ActivityTestingV1Service
             await this.activityTestingV1Service.validateAnyActivity(activity);
+
+            // CODE CLEANUP - Series of code cleanup steps
+            const codeCleanup1 = this.tsValidationOb1Service.updateConfigInputToOptionalIfUnused(activity.activityCode);
+            const codeCleanup2 = this.tsValidationOb1Service.removeExportDefaultModifiers(codeCleanup1);
+
+            if (codeCleanup2 !== activity.activityCode) {
+                activity.activityCode = codeCleanup2;
+            }
 
             const newActivity = this.activityRepository.create({
                 ...activity,
@@ -57,31 +64,37 @@ export class ActivityManagementV1Service {
                 data: this.mapToActivityResponse(savedActivity),
             };
         } catch (error) {
-            this.logger.log(`Failed to create activity:\n${JSON.stringify(error, null, 2)}`);
+            this.logger.error(`Failed to create activity: ${error.message}`, error.stack);
             throw new BadRequestException({
                 message: 'Failed to create activity',
+                code: 'ACTIVITY_CREATION_FAILED',
                 errorSuperDetails: { ...error },
             });
         }
     }
 
     // Fetch Activity
-    async getActivity(id: string): Promise<OB1Activity.ServiceResponse<OB1Activity.ActivityResponse>> {
+    async getActivity(id: string): Promise<OB1Activity.ServiceResponse<OB1Activity.ActivityResponseDto>> {
         try {
             const activity = await this.activityRepository.findOne({ where: { activityId: id } });
 
             if (!activity) {
-                throw new NotFoundException(`Activity with ID ${id} not found`);
+                throw new BadRequestException({
+                    message: `Activity with ID ${id} not found`,
+                    code: 'ACTIVITY_NOT_FOUND'
+                });
             }
 
             return {
                 success: true,
-                data: this.mapToActivityResponse(activity),
+                data: activity,
             };
         } catch (error) {
+            this.logger.error(`Failed to fetch activity: ${error.message}`, error.stack);
             throw new BadRequestException({
                 message: 'Failed to fetch activity',
-                errorSuperDetails: { error },
+                code: 'ACTIVITY_FETCH_FAILED',
+                errorSuperDetails: { ...error },
             });
         }
     }
@@ -126,9 +139,11 @@ export class ActivityManagementV1Service {
                 },
             };
         } catch (error) {
+            this.logger.error(`Failed to fetch activities: ${error.message}`, error.stack);
             throw new BadRequestException({
                 message: 'Failed to fetch activities',
-                errorSuperDetails: { error },
+                code: 'ACTIVITIES_FETCH_FAILED',
+                errorSuperDetails: { ...error },
             });
         }
     }
@@ -142,12 +157,21 @@ export class ActivityManagementV1Service {
             const activity = await this.activityRepository.findOne({ where: { activityId: id } });
 
             if (!activity) {
-                throw new NotFoundException(`Activity with ID ${id} not found`);
+                throw new BadRequestException({
+                    message: `Activity with ID ${id} not found`,
+                    code: 'ACTIVITY_NOT_FOUND'
+                });
             }
 
             // Fetch the previous version
             const previousVersion = this.mapToActivityResponse(activity);
 
+            if (updates.activityCode) {
+                const updatedActivityCode = this.tsValidationOb1Service.updateConfigInputToOptionalIfUnused(updates.activityCode);
+                if (updatedActivityCode !== updates.activityCode) {
+                    updates.activityCode = updatedActivityCode;
+                }
+            }
             // Prepare the updated fields for the new version
             const newActivityData = {
                 ...activity,
@@ -155,14 +179,17 @@ export class ActivityManagementV1Service {
                 activityId: undefined, // Ensure new record is created
             };
 
+
+
             // Call the createActivity method
             const response = await this.createActivity(newActivityData);
 
             if (!response.success) {
-                return {
-                    success: false,
-                    error: response.error,
-                };
+                throw new BadRequestException({
+                    message: 'Failed to create new activity version',
+                    code: 'ACTIVITY_UPDATE_FAILED',
+                    errorSuperDetails: response.error
+                });
             }
 
             return {
@@ -174,9 +201,11 @@ export class ActivityManagementV1Service {
                 },
             };
         } catch (error) {
+            this.logger.error(`Failed to update activity: ${error.message}`, error.stack);
             throw new BadRequestException({
                 message: 'Failed to update activity',
-                errorSuperDetails: { error },
+                code: 'ACTIVITY_UPDATE_FAILED',
+                errorSuperDetails: { ...error },
             });
         }
     }
@@ -187,7 +216,10 @@ export class ActivityManagementV1Service {
             const activity = await this.activityRepository.findOne({ where: { activityId: id } });
 
             if (!activity) {
-                throw new NotFoundException(`Activity with ID ${id} not found`);
+                throw new BadRequestException({
+                    message: `Activity with ID ${id} not found`,
+                    code: 'ACTIVITY_NOT_FOUND'
+                });
             }
 
             await this.activityRepository.remove(activity);
@@ -195,9 +227,11 @@ export class ActivityManagementV1Service {
                 success: true,
             };
         } catch (error) {
+            this.logger.error(`Failed to delete activity: ${error.message}`, error.stack);
             throw new BadRequestException({
                 message: 'Failed to delete activity',
-                errorSuperDetails: { error },
+                code: 'ACTIVITY_DELETE_FAILED',
+                errorSuperDetails: { ...error },
             });
         }
     }
@@ -210,21 +244,14 @@ export class ActivityManagementV1Service {
             activityName: activity.activityName,
             activityExternalName: activity.activityExternalName,
             activityDescription: activity.activityDescription,
-            activityCode: activity.activityCode,
-            activityMockCode: activity.activityMockCode,
-            activityInputSchema: activity.activityInputSchema,
-            activityOutputSchema: activity.activityOutputSchema,
             activityCategory: activity.activityCategory
                 ? {
                     activityCategoryId: activity.activityCategory.activityCategoryId,
-                    activityCategoryName: activity.activityCategory.activityCategoryName,
-                    activityCreatedByConsultantOrgShortName: activity.activityCategory.activityCategoryCreatedByConsultantOrgShortName
+                    activityCategoryName: activity.activityCategory.activityCategoryName
                 }
                 : undefined,
             activityCreatedAt: activity.activityCreatedAt,
             activityUpdatedAt: activity.activityUpdatedAt,
-            activityCreatedByPersonId: activity.activityCreatedByPersonId,
-            activityCreatedByConsultantOrgShortName: activity.activityCreatedByConsultantOrgShortName,
         };
     }
 }

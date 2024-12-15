@@ -22,6 +22,7 @@ export class ActivityTestingV1Service {
                 await this.activityTypeScriptV1Service.validateActivity({
                     activityCode: activity.activityCode,
                     activityInputSchema: activity.activityInputSchema,
+                    activityENVInputSchema: activity.activityENVInputSchema ? activity.activityENVInputSchema : undefined,
                     activityOutputSchema: activity.activityOutputSchema,
                     activityImports: activity.activityImports,
                 });
@@ -39,7 +40,8 @@ export class ActivityTestingV1Service {
      */
     async testAnyActivity(
         activity: OB1Activity.CreateActivity,
-        activityRequest: Record<string, any>
+        activityInputVariables: Record<string, any>,
+        activityENVInputVariables: Record<string, any>
     ): Promise<any> {
         switch (activity.activityLang) {
             case OB1Activity.ActivityLang.TYPESCRIPT:
@@ -47,10 +49,12 @@ export class ActivityTestingV1Service {
                     {
                         activityCode: activity.activityCode,
                         activityInputSchema: activity.activityInputSchema,
+                        activityENVInputSchema: activity.activityENVInputSchema,
                         activityOutputSchema: activity.activityOutputSchema,
                         activityImports: activity.activityImports,
                     },
-                    activityRequest
+                    activityInputVariables,
+                    activityENVInputVariables
                 );
             default:
                 throw new BadRequestException(`Unsupported activityLang: ${activity.activityLang}`);
@@ -63,20 +67,21 @@ export class ActivityTestingV1Service {
      * @param activityRequest the request object to test the activity with
      */
     async testAnyActivityWithActivityId(
-        id: string,
-        activityRequest: Record<string, any>
+        activityId: string,
+        activityInputVariables: Record<string, any>,
+        activityENVInputVariables: Record<string, any>
     ): Promise<any> {
         let activity: OB1AgentActivities;
 
         try {
-            activity = await this.activityRepository.findOne({ where: { activityId: id } });
+            activity = await this.activityRepository.findOne({ where: { activityId: activityId } });
 
             if (!activity) {
                 return {
                     success: false,
                     error: {
                         code: 'ACTIVITY_NOT_FOUND',
-                        message: `Activity with ID ${id} not found`,
+                        message: `Activity with ID ${activityId} not found`,
                     },
                 };
             }
@@ -101,10 +106,12 @@ export class ActivityTestingV1Service {
                     {
                         activityCode: activity.activityCode,
                         activityInputSchema: activity.activityInputSchema,
+                        activityENVInputSchema: activity.activityENVInputSchema,
                         activityOutputSchema: activity.activityOutputSchema,
                         activityImports: activity.activityImports,
                     },
-                    activityRequest
+                    activityInputVariables,
+                    activityENVInputVariables
                 );
             default:
                 throw new BadRequestException(`Unsupported activityLang: ${activity.activityLang}`);

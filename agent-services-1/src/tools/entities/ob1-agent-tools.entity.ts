@@ -146,7 +146,7 @@ export class OB1AgentTools {
     comment: 'Schema definition for the expected input parameters from environment variables or system',
     default: () => "'{}'"
   })
-  toolENVinputSchema: Record<string, any>;
+  toolENVInputSchema: Record<string, any>;
 
   @Column({
     type: 'jsonb',

@@ -143,6 +143,13 @@ export class OB1AgentWorkflows {
 
     @Column({
         type: 'jsonb',
+        comment: 'Schema for the ENV input parameters',
+        default: {},
+    })
+    workflowENVInputSchema: Record<string, any>;
+
+    @Column({
+        type: 'jsonb',
         comment: 'Schema for the output parameters',
         default: {},
     })

@@ -54,6 +54,7 @@ export namespace OB1Tool {
         toolStatus?: ToolStatus;
         toolInputSchema: Record<string, any>;
         toolOutputSchema: Record<string, any>;
+        toolENVInputSchema: Record<string, any>;
         toolConfig: Record<string, any>;
         toolCode?: string;
         toolPythonRequirements?: string;
@@ -68,12 +69,38 @@ export namespace OB1Tool {
         consultantOrgShortName: string;
     }
 
-    export interface UpdateTool extends CreateTool {
-
-        toolName: string;
-        toolDescription: string;
-        toolType: ToolType;
+    export interface UpdateTool {
+        toolName?: string;
+        toolDescription?: string;
+        toolType?: ToolType;
+        toolStatus?: ToolStatus;
+        toolInputSchema?: Record<string, any>;
+        toolOutputSchema?: Record<string, any>;
+        toolConfig?: Record<string, any>;
+        toolCode?: string;
+        toolPythonRequirements?: string;
+        toolIdentifier?: string;
+        toolTags?: string[];
+        toolCategoryId?: string;
+        toolAllowedAgents?: string[];
+        toolUsageQuota?: UsageQuotaDto;
+        toolExamples?: string;
+        toolMetadata?: Record<string, any>;
     }
+
+    // export class UpdateTool extends CreateTool {
+    //     @IsOptional()
+    //     @IsString()
+    //     toolName: string;
+
+    //     @IsOptional()
+    //     @IsString()
+    //     toolDescription: string;
+
+    //     @IsOptional()
+    //     @IsEnum(ToolType)
+    //     toolType: ToolType;
+    // }
 
     export class ToolQueryParamsDto {
         toolStatus?: ToolStatus;
@@ -153,7 +180,7 @@ export namespace OB1Tool {
         toolId: string;
         toolInputVariables?: Record<string, any>;
         requestingServiceId: string;
-        toolInputENVVariables?: Record<string, any>;
+        toolENVInputVariables?: Record<string, any>;
     }
 
     export interface ToolResponse {
@@ -171,5 +198,6 @@ export namespace OB1Tool {
         toolstatusCodeReturned?: number;
         toolExecutionTime: number;
     }
+
 
 }

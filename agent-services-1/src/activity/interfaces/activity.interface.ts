@@ -2,14 +2,14 @@ export namespace OB1Activity {
 
     export enum ActivityLang {
         PYTHON = 'python',
-        TYPESCRIPT = 'typeScript',
-        JAVASCRIPT = 'javaScript',
+        TYPESCRIPT = 'typescript',
+        JAVASCRIPT = 'javascript',
         GO = 'go',
     }
 
     export enum ActivityType {
         TEMPORAL = 'temporal',
-        LAMBDA = 'typescript',
+        LAMBDA = 'lambda',
     }
 
     export interface CreateActivity {
@@ -20,6 +20,7 @@ export namespace OB1Activity {
         activityLang: OB1Activity.ActivityLang;
         activityType?: OB1Activity.ActivityType;
         activityInputSchema: Record<string, any>;
+        activityENVInputSchema?: Record<string, any>;
         activityOutputSchema: Record<string, any>;
         activityCategoryId: string;
         personId: string;
@@ -35,6 +36,7 @@ export namespace OB1Activity {
         activityLang?: OB1Activity.ActivityLang;
         activityType?: OB1Activity.ActivityType;
         activityInputSchema?: Record<string, any>;
+        activityENVInputSchema?: Record<string, any>;
         activityOutputSchema?: Record<string, any>;
         activityCategoryId: string;
         personId: string;
@@ -55,9 +57,20 @@ export namespace OB1Activity {
         activityName: string;
         activityExternalName: string;
         activityDescription: string;
+        activityCategory?: ActivityCategory;
+        activityCreatedAt: Date;
+        activityUpdatedAt: Date;
+    }
+
+    export class ActivityResponseDto {
+        activityId: string;
+        activityName: string;
+        activityExternalName: string;
+        activityDescription: string;
         activityCode: string;
         activityMockCode: string;
         activityInputSchema: Record<string, any>;
+        activityENVInputSchema?: Record<string, any>;
         activityOutputSchema: Record<string, any>;
         activityCategory?: ActivityCategory;
         activityCreatedAt: Date;
@@ -69,7 +82,23 @@ export namespace OB1Activity {
     export interface ActivityCategory {
         activityCategoryId: string;
         activityCategoryName: string;
-        activityCreatedByConsultantOrgShortName: string;
+        activityCreatedByConsultantOrgShortName?: string;
+    }
+
+    export interface ActivityStandardInputSchemaConfig {
+        activityENVInputVariables?: Record<string, any>;
+
+        //add others as needed
+    }
+
+    export interface ActivityStandardInputSchema {
+        input: Record<string, any>;
+        config?: ActivityStandardInputSchemaConfig;
+    }
+
+    export interface ActivityStandardOutputSchema {
+        output: Record<string, any>;
+        executionDetails: Record<string, any>;
     }
 
     export interface ServiceResponse<T> {
@@ -127,5 +156,16 @@ export namespace OB1Activity {
         activityCategoryDescription: string;
         activityCategoryCreatedBypersonId: string;
         activityCategoryCreatedByConsultantOrgShortName: string;
+    }
+
+    //REGION - EXECUTION
+    export interface ActivityLoadingRequest {
+        activityCode: string;
+        imports: Set<string>;
+        workflowExternalName: string;
+    }
+
+    export interface ActivityLoadingResponse {
+        activityCode: string;
     }
 }

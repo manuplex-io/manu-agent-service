@@ -105,7 +105,7 @@ export class ToolsExecutionV1Service {
                 const toolPythonRequest: OB1Lambda.Python.ToolRequestV1 = {
                     tool: retrievedTool,
                     toolInputVariables: toolRequest.toolInputVariables,
-                    toolInputENVVariables: toolRequest?.toolInputENVVariables,
+                    toolENVInputVariables: toolRequest?.toolENVInputVariables,
                     requestingServiceId: toolRequest.requestingServiceId,
                 };
 

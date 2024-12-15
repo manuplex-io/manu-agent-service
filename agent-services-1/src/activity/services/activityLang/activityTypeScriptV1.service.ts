@@ -7,7 +7,7 @@ import Ajv from 'ajv';
 import { OB1Activity } from '../../interfaces/activity.interface';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-
+import { TSValidationOb1Service } from '../../../aa-common/ts-validation-ob1/services/ts-validation-ob1.service';
 
 const execAsync = promisify(exec);
 
@@ -16,24 +16,29 @@ const execAsync = promisify(exec);
 export class ActivityTypeScriptV1Service {
     private readonly logger = new Logger(ActivityTypeScriptV1Service.name);
 
+    constructor(
+        private readonly tsValidationOb1Service: TSValidationOb1Service,
+    ) { }
+
     /**
      * Validate an activity object before saving it.
      */
     async validateActivity(activity: {
         activityCode: string;
         activityInputSchema: Record<string, any>;
+        activityENVInputSchema?: Record<string, any>;
         activityOutputSchema: Record<string, any>;
         activityImports?: string[];
     }): Promise<void> {
-        const { activityCode, activityInputSchema, activityOutputSchema, activityImports } = activity;
+        const { activityCode, activityInputSchema, activityOutputSchema, activityImports, activityENVInputSchema } = activity;
 
         this.logger.debug('Validating activity before saving...');
 
         // Validate TypeScript code
         await this.validateTypeScriptCode(activityCode);
 
-        // Validate input and output schemas
-        await this.validateTypeCompliance(activityCode, activityInputSchema, activityOutputSchema);
+        // // Validate input and output schemas
+        // await this.validateTypeCompliance(activityCode, activityInputSchema, activityENVInputSchema, activityOutputSchema);
 
         // Validate external imports
         if (activityImports && activityImports.length > 0) {
@@ -42,6 +47,11 @@ export class ActivityTypeScriptV1Service {
 
         // Validate name is myActivity and log other function names
         await this.validateMyActivityCompliance(activity);
+
+        // const activityENVInputVariables = this.tsValidationOb1Service.extractEnvironmentVariables(activityCode, 'activity');
+        // if (activityENVInputVariables || activityENVInputSchema) {
+        //     await this.tsValidationOb1Service.validateInputKeysExistInSchema(activityENVInputSchema, activityENVInputVariables, 'activityENVInputSchema');
+        // }
 
         this.logger.debug('Activity validation completed successfully.');
     }
@@ -242,46 +252,50 @@ export class ActivityTypeScriptV1Service {
         }
     }
 
-    /**
-     * Validate input and output schemas against the activityCode.
-     */
-    private async validateTypeCompliance(
-        activityCode: string,
-        activityInputSchema: Record<string, any>,
-        activityOutputSchema: Record<string, any>
-    ): Promise<void> {
-        const sourceFile = ts.createSourceFile(
-            'activity.ts',
-            activityCode,
-            ts.ScriptTarget.ES2020,
-            true
-        );
+    // /**
+    //  * Validate input and output schemas against the activityCode.
+    //  */
+    // private async validateTypeCompliance(
+    //     activityCode: string,
+    //     activityInputSchema: Record<string, any>,
+    //     activityENVInputSchema: Record<string, any>,
+    //     activityOutputSchema: Record<string, any>
+    // ): Promise<void> {
+    //     const sourceFile = ts.createSourceFile(
+    //         'activity.ts',
+    //         activityCode,
+    //         ts.ScriptTarget.ES2020,
+    //         true
+    //     );
 
-        // Parse and validate schemas
-        this.logger.debug('Validating input schema compliance...');
-        this.validateSchemaKeys(sourceFile, activityInputSchema, 'Input');
+    //     // const combinedInputAndENVSchema = { ...activityInputSchema, ...activityENVInputSchema };
 
-        this.logger.debug('Validating output schema compliance...');
-        this.validateSchemaKeys(sourceFile, activityOutputSchema, 'Output');
+    //     // // Parse and validate schemas
+    //     // this.logger.debug('Validating input schema compliance...');
+    //     // this.validateSchemaKeys(sourceFile, activityInputSchema, 'activityInputSchema');
 
-        this.logger.debug('Input and output schemas validated successfully.');
-    }
+    //     // this.logger.debug('Validating output schema compliance...');
+    //     // this.validateSchemaKeys(sourceFile, activityOutputSchema, 'activityInputVariables');
 
-    private validateSchemaKeys(
-        sourceFile: ts.SourceFile,
-        schema: Record<string, any>,
-        schemaName: string
-    ): void {
-        const schemaKeys = Object.keys(schema);
+    //     this.logger.debug('Input and output schemas validated successfully.');
+    // }
 
-        // Inspect sourceFile for parameter or return type compliance
-        schemaKeys.forEach((key) => {
-            // Mock validation: Replace this with actual compliance logic
-            if (!schema[key]) {
-                this.logger.warn(`${schemaName} key "${key}" is missing or invalid.`);
-            }
-        });
-    }
+    // not implemented, placeholder
+    // private validateSchemaKeys(
+    //     sourceFile: ts.SourceFile,
+    //     schema: Record<string, any>,
+    //     schemaName: string
+    // ): void {
+    //     const schemaKeys = Object.keys(schema);
+
+    //     // Inspect sourceFile for parameter or return type compliance
+    //     schemaKeys.forEach((key) => {
+    //         // Mock validation: Replace this with actual compliance logic
+    //         if (!schema[key]) {
+    //             this.logger.warn(`${schemaName} key "${key}" is missing or invalid.`);
+    //         }
+    //     });
+    // }
 
     /**
      * Validate external imports are resolvable.
@@ -315,31 +329,53 @@ export class ActivityTypeScriptV1Service {
         activity: {
             activityCode: string;
             activityInputSchema: Record<string, any>;
+            activityENVInputSchema: Record<string, any>;
             activityOutputSchema: Record<string, any>;
             activityImports?: string[];
         },
-        activityRequest: Record<string, any>
+        activityInputVariables: Record<string, any>,
+        activityENVInputVariables: Record<string, any>
     ): Promise<OB1Activity.ActivityTestResponse> {
-        const { activityCode, activityInputSchema, activityOutputSchema, activityImports } = activity;
+        this.logger.debug(`Testing activity... with input: \n${JSON.stringify(activityInputVariables, null, 2)} & ENV input: \n${JSON.stringify(activityENVInputVariables, null, 2)}`);
+        const { activityCode, activityInputSchema, activityENVInputSchema, activityOutputSchema, activityImports } = activity;
 
         // Step 1: Validate activityRequest against activityInputSchema
         this.logger.debug('Validating activityRequest against activityInputSchema...');
         const validationPipe = new ValidationPipe({ whitelist: true, transform: true });
 
         try {
-            // Transform and validate using the schema as a class
+            // Transform and validate the activityInputVariables against the activity.activityInputSchema using the schema as a class
             const schemaClass = this.createSchemaClass(activityInputSchema);
-            await validationPipe.transform(plainToClass(schemaClass, activityRequest), {
+            await validationPipe.transform(plainToClass(schemaClass, activityInputVariables), {
                 type: 'body',
                 metatype: schemaClass,
             });
         } catch (error) {
-            this.logger.error('Validation of activityRequest failed', error.message);
+            this.logger.error('Validation of activityInputVariables failed', error.message);
             throw new BadRequestException({
-                message: 'Validation of activityRequest failed',
+                message: 'Validation of activityInputVariables failed',
                 details: error.message,
             });
         }
+
+
+        try {
+            // Transform and validate the activityInputENVVariables against the activity.activityENVInputSchema using the schema as a class
+            const ENVschemaClass = this.createSchemaClass(activityENVInputSchema);
+            await validationPipe.transform(plainToClass(ENVschemaClass, activityENVInputVariables), {
+                type: 'body',
+                metatype: ENVschemaClass,
+            });
+        } catch (error) {
+            this.logger.error('Validation of activityENVInputVariables failed', error.message);
+            throw new BadRequestException({
+                message: 'Validation of activityENVInputVariables failed',
+                details: error.message,
+            });
+        }
+
+        this.logger.debug(`Testing activity... with input: \n${JSON.stringify(activityInputVariables, null, 2)} & ENV input: \n${JSON.stringify(activityENVInputVariables, null, 2)}`);
+
 
         this.logger.debug('activityRequest validation passed.');
 
@@ -360,9 +396,20 @@ export class ActivityTypeScriptV1Service {
         // Step 3: Execute activityCode
         let activityResponse;
         try {
-            this.logger.debug('Executing activityCode...');
-            const exportedFunction = this.compileActivityCode(activityCode);
-            activityResponse = await exportedFunction(activityRequest, {}); // Pass input and config
+            const input = {
+                ...activityInputVariables,
+            };
+
+            const config = {
+                activityENVInputVariables,
+            };
+
+            this.logger.debug(`Executing activityCode... with input: \n${JSON.stringify(input, null, 2)} & ENV input: \n${JSON.stringify(config, null, 2)}`);
+
+            const createdActivity = this.compileActivityCode(activityCode);
+            activityResponse = await createdActivity(
+                input, config
+            ); // Pass input and config
         } catch (executionError) {
             this.logger.error('Execution of activityCode failed', executionError.message);
             throw new BadRequestException({
@@ -416,7 +463,7 @@ export class ActivityTypeScriptV1Service {
     /**
      * Compile TypeScript code and return the default export function.
      */
-    private compileActivityCode(activityCode: string): Function {
+    private compileActivityCode(activityCode: string): (input: Record<string, any>, config: OB1Activity.ActivityStandardInputSchemaConfig) => Promise<OB1Activity.ActivityStandardOutputSchema> {
         const transpileResult = ts.transpileModule(activityCode, {
             compilerOptions: {
                 target: ts.ScriptTarget.ES2020,
@@ -439,7 +486,7 @@ export class ActivityTypeScriptV1Service {
             throw new Error('Activity code must export a default function.');
         }
 
-        return exports.default;
+        return exports.default as (input: Record<string, any>, config: OB1Activity.ActivityStandardInputSchemaConfig) => Promise<OB1Activity.ActivityStandardOutputSchema>;
     }
 
     /**

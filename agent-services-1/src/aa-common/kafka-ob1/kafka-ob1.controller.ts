@@ -10,6 +10,8 @@ import {
 } from 'src/aa-common/kafka-ob1/interfaces/ob1-message.interfaces';
 import { KafkaOb1ProcessingService } from './services/kafka-ob1-processing/kafka-ob1-processing.service';
 
+const DEFAULT_AS_REQUEST_TIMEOUT_MS = parseInt(process.env.DEFAULT_AS_REQUEST_TIMEOUT_MS || '20000', 10);
+
 @Controller('kafka-ob1')
 export class KafkaOb1Controller implements OnModuleInit {
   private readonly logger = new Logger(KafkaOb1Controller.name);
@@ -20,7 +22,7 @@ export class KafkaOb1Controller implements OnModuleInit {
     this.logger.log('Kafka consumer initialized and started');
   }
 
-  @MessagePattern('manuos-ob1-agentService')
+  @MessagePattern('budyos-ob1-agentService')
   async handleSystemMessages(
     @Payload() message: OB1AgentService.MessageIncomingValueV2,
     @Ctx() context: KafkaContext,
@@ -32,8 +34,11 @@ export class KafkaOb1Controller implements OnModuleInit {
       // Validate incoming message
       validateIncomingKafkaMessageFields(context);
 
-      // Process the message
-      const result = await this.kafkaOb1ProcessingService.processRequest(message, context);
+      // Process the message with timeout
+      const result = await this.requestWithTimeout(
+        () => this.kafkaOb1ProcessingService.processRequest(message, context),
+        DEFAULT_AS_REQUEST_TIMEOUT_MS
+      );
 
       // Build response
       return this.buildResponse(
@@ -63,6 +68,24 @@ export class KafkaOb1Controller implements OnModuleInit {
         error.status
       );
     }
+  }
+
+  private async requestWithTimeout<T>(task: () => Promise<T>, timeout: number): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        reject(new Error('Request timed out'));
+      }, timeout);
+
+      task()
+        .then(result => {
+          clearTimeout(timer);
+          resolve(result);
+        })
+        .catch(err => {
+          clearTimeout(timer);
+          reject(err);
+        });
+    });
   }
 
   /**

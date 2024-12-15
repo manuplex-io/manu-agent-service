@@ -1,11 +1,5 @@
 // src/llm/services/llm.service.ts
-import {
-  Injectable,
-  Logger,
-  BadRequestException,
-  NotFoundException,
-  ValidationPipe,
-} from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, NotFoundException, ValidationPipe } from '@nestjs/common';
 import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
 import { validate } from 'class-validator';
@@ -71,9 +65,9 @@ export class LLMV2Service {
             throw new BadRequestException(`Total prompt length exceeds ${maxLength} characters`);
         }
 
-    // Validate provider-specific configurations
-    this.validateProviderConfig(request.config);
-  }
+        // Validate provider-specific configurations
+        this.validateProviderConfig(request.config);
+    }
 
     private validateProviderConfig(config: OB1LLM.LLMConfig): void {
         const isAnthropicModel = Object.values(OB1LLM.AnthropicModels).includes(config.model as OB1LLM.AnthropicModels);
@@ -99,9 +93,9 @@ export class LLMV2Service {
             });
         }
 
-    if (request.messageHistory?.length) {
-      messages.push(...request.messageHistory);
-    }
+        if (request.messageHistory?.length) {
+            messages.push(...request.messageHistory);
+        }
 
         // userPrompt will not be defined in the case of a tool call response
         if (request.userPrompt) {
@@ -339,10 +333,7 @@ export class LLMV2Service {
 
             await this.validateRequest(request); // checks if max lenth is too long, also trims messageHistory
 
-      this.logger.debug(
-        `Sending request to ${request.config.provider} with config:`,
-        request.config,
-      );
+            this.logger.debug(`Sending request to ${request.config.provider} with config:`, request.config);
 
             switch (request.config.provider) {
                 // case OB1LLM.LLMProvider.ANTHROPIC:

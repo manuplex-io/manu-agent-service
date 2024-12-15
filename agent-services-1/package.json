@@ -37,6 +37,8 @@
     "axios": "^1.7.7",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
+    "esbuild": "^0.24.0",
+    "ioredis": "^5.4.1",
     "kafkajs": "^2.2.4",
     "openai": "^4.71.0",
     "pg": "^8.13.1",

@@ -9,7 +9,7 @@ export namespace OB1Lambda {
             tool: OB1AgentTools;
             toolInputVariables?: Record<string, any>;
             requestingServiceId: string;
-            toolInputENVVariables?: Record<string, any>; // New optional field for environment variables
+            toolENVInputVariables?: Record<string, any>; // New optional field for environment variables
         }
 
         export class ToolResponseV1 {

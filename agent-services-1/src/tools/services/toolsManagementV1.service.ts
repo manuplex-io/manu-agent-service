@@ -1,6 +1,6 @@
 // src/tools/services/toolsManagementV1.service.ts
 
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { OB1AgentTools } from '../entities/ob1-agent-tools.entity';
@@ -13,6 +13,8 @@ import { ToolsExecutionV1Service } from './toolsExecutionV1.service';
 
 @Injectable()
 export class ToolsManagementV1Service {
+    private readonly logger = new Logger(ToolsManagementV1Service.name);
+
     constructor(
         @InjectRepository(OB1AgentTools) private toolsRepository: Repository<OB1AgentTools>,
         @InjectRepository(OB1AgentToolCategory) private toolCategoryRepository: Repository<OB1AgentToolCategory>,
@@ -81,10 +83,11 @@ export class ToolsManagementV1Service {
                 data: this.mapToToolResponse(savedTool)
             };
         } catch (error) {
+            this.logger.error(`Failed to create tool: ${error.message}`, error.stack);
             throw new BadRequestException({
                 message: 'Failed to create tool',
                 code: 'TOOL_CREATION_FAILED',
-                details: { error: error.message }
+                errorSuperDetails: { ...error }
             });
         }
     }
@@ -138,42 +141,44 @@ export class ToolsManagementV1Service {
                 }
             };
         } catch (error) {
+            this.logger.error(`Failed to fetch tools: ${error.message}`, error.stack);
             throw new BadRequestException({
                 message: 'Failed to fetch tools',
                 code: 'TOOL_FETCH_FAILED',
-                details: { error: error.message }
+                errorSuperDetails: { ...error }
             });
         }
     }
+
+    // async getTool(id: string): Promise<OB1Tool.ServiceResponse<OB1Tool.ToolResponseDto>> {
+    //     try {
+    //         const tool = await this.toolsRepository.findOne({
+    //             where: { toolId: id },
+    //             relations: ['toolCategory']
+    //         });
+
+    //         if (!tool) {
+    //             throw new BadRequestException({
+    //                 message: `Tool with ID ${id} not found`,
+    //                 code: 'TOOL_NOT_FOUND'
+    //             });
+    //         }
+
+    //         return {
+    //             success: true,
+    //             data: this.mapToToolResponse(tool)
+    //         };
+    //     } catch (error) {
+    //         this.logger.error(`Failed to fetch tool: ${error.message}`, error.stack);
+    //         throw new BadRequestException({
+    //             message: 'Failed to fetch tool',
+    //             code: 'TOOL_FETCH_FAILED',
+    //             errorSuperDetails: { ...error }
+    //         });
+    //     }
+    // }
 
     async getTool(id: string): Promise<OB1Tool.ServiceResponse<OB1Tool.ToolResponseDto>> {
-        try {
-            const tool = await this.toolsRepository.findOne({
-                where: { toolId: id },
-                relations: ['toolCategory']
-            });
-
-            if (!tool) {
-                throw new BadRequestException({
-                    message: `Tool with ID ${id} not found`,
-                    code: 'TOOL_NOT_FOUND'
-                });
-            }
-
-            return {
-                success: true,
-                data: this.mapToToolResponse(tool)
-            };
-        } catch (error) {
-            throw new BadRequestException({
-                message: 'Failed to fetch tool',
-                code: 'TOOL_FETCH_FAILED',
-                details: { error: error.message }
-            });
-        }
-    }
-
-    async getFullTool(id: string): Promise<OB1Tool.ServiceResponse<OB1Tool.ToolResponseDto>> {
         try {
             const tool = await this.toolsRepository.findOne({
                 where: { toolId: id },
@@ -192,14 +197,14 @@ export class ToolsManagementV1Service {
                 data: tool,
             };
         } catch (error) {
+            this.logger.error(`Failed to fetch tool: ${error.message}`, error.stack);
             throw new BadRequestException({
                 message: 'Failed to fetch tool',
-                code: 'TOOL_FETCH_FAILED',
-                details: { error: error.message }
+                code: 'TOOL_FETCH_FAILED', 
+                errorSuperDetails: { ...error }
             });
         }
     }
-
     async updateTool(id: string, updateToolDto: OB1Tool.UpdateTool): Promise<OB1Tool.ServiceResponse<OB1Tool.ToolUpdateResult>> {
         try {
             const tool = await this.toolsRepository.findOne({
@@ -250,33 +255,37 @@ export class ToolsManagementV1Service {
                 }
             };
         } catch (error) {
+            this.logger.error(`Failed to update tool: ${error.message}`, error.stack);
             throw new BadRequestException({
                 message: 'Failed to update tool',
                 code: 'TOOL_UPDATE_FAILED',
-                details: { error: error.message }
+                errorSuperDetails: { ...error }
             });
         }
     }
 
+
     async deleteTool(id: string): Promise<OB1Tool.ServiceResponse<void>> {
         try {
-            const result = await this.toolsRepository.delete(id);
-            if (result.affected === 0) {
-                return {
-                    success: false,
-                    error: {
-                        code: 'TOOL_NOT_FOUND',
-                        message: `Tool with ID ${id} not found`
-                    }
-                };
+            const tool = await this.toolsRepository.findOne({
+                where: { toolId: id }
+            });
+
+            if (!tool) {
+                throw new BadRequestException({
+                    message: `Tool with ID ${id} not found`,
+                    code: 'TOOL_NOT_FOUND'
+                });
             }
 
+            await this.toolsRepository.remove(tool);
             return { success: true };
         } catch (error) {
+            this.logger.error(`Failed to delete tool: ${error.message}`, error.stack);
             throw new BadRequestException({
                 message: 'Failed to delete tool',
                 code: 'TOOL_DELETE_FAILED',
-                details: { error: error.message }
+                errorSuperDetails: { ...error }
             });
         }
     }

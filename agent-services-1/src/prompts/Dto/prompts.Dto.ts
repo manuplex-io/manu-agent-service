@@ -1,10 +1,11 @@
 // /scr/prompt/Dto/prompt.Dto.ts
 
-import { IsNotEmpty, IsString, IsOptional, IsUUID, IsObject, IsArray, IsEnum, ValidateNested, IsBoolean, } from 'class-validator';
-import { Expose, Type } from 'class-transformer';
+import { IsNotEmpty, IsString, IsOptional, IsUUID, IsObject, IsArray, IsEnum, ValidateNested, IsBoolean, IsNumber, } from 'class-validator';
+import { Type } from 'class-transformer';
 import { OB1Prompt } from '../interfaces/prompt.interface';
 import { OB1LLM } from '../../llms/interfaces/llmV2.interfaces';
 import { DynamicObjectValidator } from './DynamicObject.validator';
+
 
 export namespace OB1PromptDto {
 
@@ -94,7 +95,7 @@ export namespace OB1PromptDto {
         };
 
         //response_format
-        @IsOptional() å
+        @IsOptional()
         promptResponseFormat?: OB1LLM.ResponseFormatJSONSchema;
         //e.g
         // response_format: {
@@ -120,10 +121,57 @@ export namespace OB1PromptDto {
     }
 
 
-    export class UpdatePromptDto extends CreatePromptDto {
+    export class UpdatePromptDto {
+        @IsOptional()
+        @IsString()
+        promptName: string;
+
+        @IsOptional()
+        @IsString()
+        promptDescription: string;
+
+        @IsOptional()
+        @IsString()
+        systemPrompt: string;
+
+        @IsOptional()
+        @IsString()
+        userPrompt: string;
+
         @IsOptional()
         @IsEnum(OB1Prompt.PromptStatus)
-        promptStatus?: OB1Prompt.PromptStatus;
+        promptStatus?: OB1Prompt.PromptStatus = OB1Prompt.PromptStatus.DRAFT;
+
+        @IsOptional()
+        @IsObject()
+        @ValidateNested()
+        @Type(() => LLMConfigDto)
+        promptDefaultConfig: LLMConfigDto;
+
+        @IsOptional()
+        @IsArray()
+        promptAvailableTools?: string[];  //only the toolId's in Array
+
+        @IsOptional()
+        @IsObject()
+        @DynamicObjectValidator({
+            message: 'systemPromptVariables must be an object with valid VariableDefinitionDto values.',
+        })
+        systemPromptVariables?: {
+            [key: string]: VariableDefinitionDto;
+        };
+
+        @IsOptional()
+        @IsObject()
+        @DynamicObjectValidator({
+            message: 'userPromptVariables must be an object with valid VariableDefinitionDto values.',
+        })
+        userPromptVariables: {
+            [key: string]: VariableDefinitionDto;
+        };
+        //response_format
+        @IsOptional() å
+        promptResponseFormat?: OB1LLM.ResponseFormatJSONSchema;
     }
 
     export class ExecutePromptBaseDto {
@@ -133,7 +181,7 @@ export namespace OB1PromptDto {
 
         @IsOptional()
         @IsObject()
-        toolInputENVVariables?: Record<string, any>;
+        toolENVInputVariables?: Record<string, any>;
 
         @IsOptional()
         @IsObject()
@@ -167,11 +215,6 @@ export namespace OB1PromptDto {
         @IsString()
         userPrompt: string;
 
-        @IsOptional()
-        @IsArray()
-        @ValidateNested({ each: true })
-        messageHistory?: (OB1LLM.NonToolMessage | OB1LLM.ChatCompletionToolMessageParam)[];
-
     }
 
     export class ExecutePromptWithoutUserPromptDto extends ExecutePromptBaseDto {
@@ -180,13 +223,6 @@ export namespace OB1PromptDto {
         userPromptVariables: {
             [key: string]: any;
         };
-
-        @IsOptional()
-        @IsArray()
-        @ValidateNested({ each: true })
-        @Type(() => OB1LLM.NonToolMessage) // Use correct type here
-        @Expose() 
-        messageHistory?: (OB1LLM.NonToolMessage | OB1LLM.ChatCompletionToolMessageParam)[];
 
     }
 
@@ -206,6 +242,14 @@ export namespace OB1PromptDto {
 
         @IsUUID()
         personId: string;
+
+        @IsOptional()
+        @IsNumber()
+        page?: number;
+
+        @IsOptional()
+        @IsNumber()
+        limit?: number;
 
         @IsNotEmpty()
         @IsString()

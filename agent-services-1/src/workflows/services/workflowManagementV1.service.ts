@@ -12,8 +12,8 @@ import { OB1AgentActivities } from '../../activity/entities/ob1-agent-activities
 import { OB1Workflow } from '../interfaces/workflow.interface';
 //import { OB1Activity } from '../../activity/interfaces/activity.interface';
 
-import { WorkflowTestingV1Service } from 'src/workflows/services/workflowTestingV1.service';
-
+import { WorkflowTestingV1Service } from 'src/workflows/services/testing/workflowTestingV1.service';
+import { TSValidationOb1Service } from '../../aa-common/ts-validation-ob1/services/ts-validation-ob1.service';
 @Injectable()
 export class WorkflowManagementV1Service {
     private readonly logger = new Logger(WorkflowManagementV1Service.name);
@@ -23,6 +23,7 @@ export class WorkflowManagementV1Service {
         @InjectRepository(OB1AgentWorkflowActivities) private readonly workflowActivitiesRepository: Repository<OB1AgentWorkflowActivities>,
         @InjectRepository(OB1AgentActivities) private readonly activityRepository: Repository<OB1AgentActivities>,
         private readonly workflowTestingV1Service: WorkflowTestingV1Service,
+        private readonly tsValidationOb1Service: TSValidationOb1Service,
     ) { }
 
     // Create Workflow
@@ -77,6 +78,14 @@ export class WorkflowManagementV1Service {
             // TODO: Validate workflow using a validateAnyWorkflow method
             await this.workflowTestingV1Service.validateAnyWorkflow(workflow);
 
+            // CODE CLEANUP - Series of code cleanup steps
+            const codeCleanup1 = this.tsValidationOb1Service.updateConfigInputToOptionalIfUnused(workflow.workflowCode);
+            const codeCleanup2 = this.tsValidationOb1Service.removeExportDefaultModifiers(codeCleanup1);
+
+            // Update workflow code if it has changed
+            if (codeCleanup2 !== workflow.workflowCode) {
+                workflow.workflowCode = codeCleanup2;
+            }
             // Create New Workflow
             const newWorkflow = this.workflowRepository.create({
                 ...workflow,
@@ -119,7 +128,7 @@ export class WorkflowManagementV1Service {
     // Fetch Workflow
     async getWorkflow(
         id: string,
-    ): Promise<OB1Workflow.ServiceResponse<OB1Workflow.WorkflowResponse>> {
+    ): Promise<OB1Workflow.ServiceResponse<OB1Workflow.WorkflowResponseDto>> {
         try {
             const workflow = await this.workflowRepository.findOne({
                 where: { workflowId: id },
@@ -135,7 +144,7 @@ export class WorkflowManagementV1Service {
 
             return {
                 success: true,
-                data: this.mapToWorkflowResponse(workflow),
+                data: workflow,
             };
         } catch (error) {
             this.logger.error(`Failed to fetch workflow: ${error.message}`, error.stack);
@@ -243,6 +252,13 @@ export class WorkflowManagementV1Service {
                 activities = workflow.workflowActivities.map((wa) => wa.activity);
             }
 
+            if (updates.workflowCode) {
+                const updatedWorkflowCode = this.tsValidationOb1Service.updateConfigInputToOptionalIfUnused(updates.workflowCode);
+                if (updatedWorkflowCode !== updates.workflowCode) {
+                    updates.workflowCode = updatedWorkflowCode;
+                }
+            }
+
             // Prepare the updated fields for the new version
             const newWorkflowData = {
                 ...workflow,
@@ -256,6 +272,7 @@ export class WorkflowManagementV1Service {
                 workflowCreatedByPersonId: workflow.workflowCreatedByPersonId,
                 workflowCreatedByConsultantOrgShortName: workflow.workflowCreatedByConsultantOrgShortName,
                 workflowCategory: workflow.workflowCategory,
+                workflowCreatedAt: workflow.workflowCreatedAt,
             });
 
             const savedWorkflow = await this.workflowRepository.save(newWorkflow);
@@ -329,19 +346,13 @@ export class WorkflowManagementV1Service {
             workflowName: workflow.workflowName,
             workflowExternalName: workflow.workflowExternalName,
             workflowDescription: workflow.workflowDescription,
-            workflowCode: workflow.workflowCode,
-            workflowMockCode: workflow.workflowMockCode,
-            workflowInputSchema: workflow.workflowInputSchema,
-            workflowOutputSchema: workflow.workflowOutputSchema,
-            workflowImports: workflow.workflowImports,
             workflowLang: workflow.workflowLang,
             workflowType: workflow.workflowType,
             workflowCategory: workflow.workflowCategory
                 ? {
                     workflowCategoryId: workflow.workflowCategory.workflowCategoryId,
-                    workflowCategoryName: workflow.workflowCategory.workflowCategoryName,
-                    workflowCategoryCreatedByConsultantOrgShortName:
-                        workflow.workflowCategory.workflowCategoryCreatedByConsultantOrgShortName,
+                    workflowCategoryName: workflow.workflowCategory.workflowCategoryName
+                   
                 }
                 : undefined,
             activitiesUsedByWorkflow: workflow.workflowActivities
@@ -352,9 +363,6 @@ export class WorkflowManagementV1Service {
                 : [],
             workflowCreatedAt: workflow.workflowCreatedAt,
             workflowUpdatedAt: workflow.workflowUpdatedAt,
-            workflowCreatedByPersonId: workflow.workflowCreatedByPersonId,
-            workflowCreatedByConsultantOrgShortName: workflow.workflowCreatedByConsultantOrgShortName,
-            workflowVersion: workflow.workflowVersion,
         };
     }
 }

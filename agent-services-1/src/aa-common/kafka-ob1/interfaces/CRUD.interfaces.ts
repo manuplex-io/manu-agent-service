@@ -36,7 +36,7 @@ export const CRUDToolRoute = {
     // Tool endpoints
     LIST_TOOLS: 'tools',
     GET_TOOL: 'tools/:id',
-    GET_FULL_TOOL: 'tools/fullDetails/:id',
+    // GET_FULL_TOOL: 'tools/fullDetails/:id',
     CREATE_TOOL: 'tools',
     UPDATE_TOOL: 'tools/:id',
     DELETE_TOOL: 'tools/:id',
@@ -94,10 +94,25 @@ export const CRUDWorkflowRoute = {
     // Workflow testing endpoints
     TEST_WORKFLOW: 'workflows/test/:workflowId',
     VALIDATE_WORKFLOW_ONLY: 'workflows/validateOnly/:workflowId',
+
+    // Workflow execution endpoints
+    EXECUTE_WORKFLOW: 'workflows/execute/:workflowId',
+    EXECUTE_WORKFLOW_SYNC: 'workflows/executeSync/:workflowId',
+    EXECUTE_WORKFLOW_ASYNC: 'workflows/executeAsync/:workflowId',
+    EXECUTE_WORKFLOW_SCHEDULED: 'workflows/executeScheduled/:workflowId',
+    GET_WORKFLOW_EXECUTION_STATUS: 'workflows/executionStatus/:workflowExecutionId',
+    GET_WORKFLOW_SCHEDULE_STATUS: 'workflows/scheduleStatus/:workflowScheduleId',
 } as const;
 
 export type CRUDWorkflowRouteType = typeof CRUDWorkflowRoute[keyof typeof CRUDWorkflowRoute];
 
+
+export const CRUDLLMRoute = {
+    // Workflow endpoints
+    GENERATE_LLM_RESPONSE: 'llm',
+} as const;
+
+export type CRUDLLMRouteType = typeof CRUDLLMRoute[keyof typeof CRUDLLMRoute];
 
 export class CRUDRouteParams {
     @IsOptional()
@@ -131,6 +146,10 @@ export class CRUDRouteParams {
     @IsOptional()
     @IsString()
     workflowCategoryId?: string;
+
+    @IsOptional()
+    @IsString()
+    temporalWorkflowId?: string;
 }
 
 export class CRUDFunctionInput {
@@ -139,8 +158,8 @@ export class CRUDFunctionInput {
     CRUDOperationName: CRUDOperationNameType;
 
     @IsString()
-    @IsEnum([...Object.values(CRUDPromptRoute), ...Object.values(CRUDToolRoute), ...Object.values(CRUDActivityRoute), ...Object.values(CRUDWorkflowRoute)]) // Combine routes
-    CRUDRoute: CRUDPromptRouteType | CRUDToolRouteType | CRUDActivityRouteType | CRUDWorkflowRouteType;
+    @IsEnum([...Object.values(CRUDPromptRoute), ...Object.values(CRUDToolRoute), ...Object.values(CRUDActivityRoute), ...Object.values(CRUDWorkflowRoute), ...Object.values(CRUDLLMRoute)]) // Combine routes
+    CRUDRoute: CRUDPromptRouteType | CRUDToolRouteType | CRUDActivityRouteType | CRUDWorkflowRouteType | CRUDLLMRouteType;
 
     @IsOptional()
     @IsObject()

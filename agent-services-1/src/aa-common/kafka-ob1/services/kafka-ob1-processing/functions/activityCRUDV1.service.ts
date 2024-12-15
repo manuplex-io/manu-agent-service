@@ -10,7 +10,6 @@ import {
 } from '../../../interfaces/CRUD.interfaces';
 import {
     OB1ActivityDto,
-    OB1ActivityDto as ActivityDto,
 } from 'src/activity/Dto/activity.Dto';
 
 import { PersonPayload } from 'src/aa-common/kafka-ob1/interfaces/personPayload.interface';
@@ -71,12 +70,15 @@ export class ActivityCRUDV1 {
                 // Activities Routes
                 case `${CRUDOperationName.GET}-${CRUDActivityRoute.LIST_ACTIVITIES}`: {
                     const updatedQueryParams = {
-                        ...queryParams, consultantOrgShortName: consultantPayload?.consultantOrgShortName,
+                        ...queryParams,
+                        consultantOrgShortName: consultantPayload?.consultantOrgShortName,
                         personId: consultantPayload?.personId,
+                        limit: queryParams.limit ? Number(queryParams.limit) : undefined,
+                        page: queryParams.page ? Number(queryParams.page) : undefined
                     };
                     const validatedQuery = await this.validationPipe.transform(
                         updatedQueryParams,
-                        { metatype: ActivityDto.ActivityQueryParamsDto, type: 'query' }
+                        { metatype: OB1ActivityDto.ActivityQueryParamsDto, type: 'query' }
                     );
                     return await this.activityManagementService.getActivities(validatedQuery);
                 }
@@ -94,7 +96,7 @@ export class ActivityCRUDV1 {
                 case `${CRUDOperationName.POST}-${CRUDActivityRoute.CREATE_ACTIVITY}`: {
                     const validatedBody = await this.validationPipe.transform(
                         CRUDBodyWithConsultantPayload,
-                        { metatype: ActivityDto.CreateActivityDto, type: 'body' }
+                        { metatype: OB1ActivityDto.CreateActivityDto, type: 'body' }
                     );
                     return await this.activityManagementService.createActivity(validatedBody);
                 }
@@ -108,7 +110,7 @@ export class ActivityCRUDV1 {
                     }
                     const validatedBody = await this.validationPipe.transform(
                         CRUDBodyWithConsultantPayload,
-                        { metatype: ActivityDto.CreateActivityDto, type: 'body' }
+                        { metatype: OB1ActivityDto.CreateActivityDto, type: 'body' }
                     );
                     return await this.activityManagementService.updateActivity(routeParams.activityId, validatedBody);
                 }
@@ -127,7 +129,7 @@ export class ActivityCRUDV1 {
                 case `${CRUDOperationName.GET}-${CRUDActivityRoute.LIST_CATEGORIES}`: {
                     const validatedBody = await this.validationPipe.transform(
                         CRUDBodyWithConsultantPayload,
-                        { metatype: ActivityDto.GetCategoryDto, type: 'body' }
+                        { metatype: OB1ActivityDto.GetCategoryDto, type: 'body' }
                     );
                     return await this.activityCategoryService.getCategories(validatedBody);
                 }
@@ -136,7 +138,7 @@ export class ActivityCRUDV1 {
                     //this.logger.log(`Pre validation CRUDActivityRoutes: CRUDBodyWithConsultantPayload:\n${JSON.stringify(CRUDBodyWithConsultantPayload, null, 2)}`);
                     const validatedBody = await this.validationPipe.transform(
                         CRUDBodyWithConsultantPayload,
-                        { metatype: ActivityDto.CreateCategoryDto, type: 'body' }
+                        { metatype: OB1ActivityDto.CreateCategoryDto, type: 'body' }
                     );
                     //this.logger.log(`Post validation CRUDActivityRoutes: validatedBody:\n${JSON.stringify(validatedBody, null, 2)}`);
                     return await this.activityCategoryService.createCategory(validatedBody);
@@ -151,7 +153,7 @@ export class ActivityCRUDV1 {
                     }
                     const validatedBody = await this.validationPipe.transform(
                         CRUDBodyWithConsultantPayload,
-                        { metatype: ActivityDto.UpdateCategoryDto, type: 'body' }
+                        { metatype: OB1ActivityDto.UpdateCategoryDto, type: 'body' }
                     );
                     return await this.activityCategoryService.updateCategory(routeParams.activityCategoryId, validatedBody);
                 }
@@ -174,15 +176,24 @@ export class ActivityCRUDV1 {
                             details: { routeParams },
                         });
                     }
-                    const activityRequest = CRUDBodyWithConsultantPayload;
-                    return await this.activityTestingService.testAnyActivityWithActivityId(routeParams.activityId, activityRequest);
+                    const validatedBody = await this.validationPipe.transform(
+                        CRUDBodyWithConsultantPayload,
+                        { metatype: OB1ActivityDto.ActivityExecutionRequestDto, type: 'body' }
+                    );
+                    const activityInputVariables = validatedBody.activityInputVariables;
+                    const activityENVInputVariables = validatedBody?.activityENVInputVariables || {};
+                    return await this.activityTestingService.testAnyActivityWithActivityId(
+                        routeParams.activityId,
+                        activityInputVariables,
+                        activityENVInputVariables
+                    );
                 }
 
                 // Validate Activity Only i.e without Saving
                 case `${CRUDOperationName.POST}-${CRUDActivityRoute.VALIDATE_ACTIVITY_ONLY}`: {
                     const validatedBody = await this.validationPipe.transform(
                         CRUDBodyWithConsultantPayload,
-                        { metatype: ActivityDto.CreateActivityDto, type: 'body' }
+                        { metatype: OB1ActivityDto.CreateActivityDto, type: 'body' }
                     );
                     return await this.activityTestingService.validateAnyActivity(validatedBody);
                 }

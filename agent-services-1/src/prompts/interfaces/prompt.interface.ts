@@ -25,7 +25,7 @@ export namespace OB1Prompt {
         systemPrompt: string;
         userPrompt?: string;
         availableTools?: Array<OB1LLM.InputTool>;
-        toolInputENVVariables?: Record<string, any>;
+        toolENVInputVariables?: Record<string, any>;
 
         promptId: string;
         systemPromptVariables?: Record<string, any>;
@@ -42,8 +42,6 @@ export namespace OB1Prompt {
             toolTimeout?: number;
             maxTotalExecutionTime?: number;
         };
-
-        messageHistory?: (OB1LLM.NonToolMessage | OB1LLM.ChatCompletionToolMessageParam)[];
 
     }
 
@@ -71,11 +69,7 @@ export namespace OB1Prompt {
     }
 
     export interface ExecutePromptWithoutUserPrompt extends ExecutePromptWithToolsBase {
-        
         userPromptVariables: Record<string, any>;
-
-        messageHistory?: (OB1LLM.NonToolMessage | OB1LLM.ChatCompletionToolMessageParam)[];
-        
     }
 
     export class VariableDefinitionDto {
@@ -257,16 +251,68 @@ export namespace OB1Prompt {
         @IsOptional()
         promptCategoryDescription?: string;
     }
+    export interface UpdatePrompt {
+        // Fields that can be updated
+        promptDescription?: string;
+        promptStatus?: PromptStatus;
+        systemPrompt?: string;
+        userPrompt?: string;
+        systemPromptVariables?: Record<string, {
+            type: string;
+            description: string;
+            required: boolean;
+            defaultValue?: any;
+        }>;
+        userPromptVariables?: Record<string, {
+            type: string;
+            description: string;
+            required: boolean;
+            defaultValue?: any;
+        }>;
+        promptDefaultConfig?: {
+            provider: OB1LLM.LLMProvider;
+            model: OB1LLM.AnthropicModels | OB1LLM.OpenAIModels;
+            temperature?: number;
+            maxTokens?: number;
+            maxLLMCalls: number;
+            maxToolCalls: number;
+            maxTotalExecutionTime: number;
+            timeout: {
+                llmCall: number;
+                promptCall: number;
+            };
+            maxToolCallsPerType: Record<string, number>;
+        };
+        promptAvailableTools?: string[];
+        promptResponseFormat?: OB1LLM.ResponseFormatJSONSchema;
+    }
 
     export interface CategoryResponse {
-        id: string;
-        name: string;
-        description: string;
+        promptCategoryId: string;
+        promptCategoryName: string;
+        promptCategoryDescription: string;
         promptCategoryCreatedByPersonId: string;
         promptCategoryCreatedByConsultantOrgShortName: string;
     }
 
     export interface PromptResponse {
+        promptId: string;
+        promptName: string;
+        promptExternalName: string;
+        promptDescription: string;
+        promptCategory?: {
+            promptCategoryId: string;
+            promptCategoryName: string;
+        };
+        promptStatus: OB1Prompt.PromptStatus;
+        promptAvailableTools: string[];
+        promptToolChoice?: OB1LLM.ChatCompletionToolChoiceOption;
+        promptCreatedAt: Date;
+        promptUpdatedAt: Date;
+        promptExecutionCount: number;
+    }
+
+    export class PromptResponseDto {
         promptId: string;
         promptName: string;
         promptExternalName: string;
@@ -340,5 +386,11 @@ export namespace OB1Prompt {
         search?: string;
         page?: number;
         limit?: number;
+    }
+
+    export interface PromptUpdateResult {
+        previousVersion: PromptResponse;
+        updatedVersion: PromptResponse;
+        changes: string[];
     }
 }

@@ -2,10 +2,7 @@ services:
 
   agent-services-1:
     build: ./agent-services-1
-    container_name: agent-services-1
-    hostname: agent-services-1.manuplex-uswest-2.local
-    ports:
-      - "5004:3000"
+    hostname: ${SERVICE_ID}.orangebox-uswest-2.local
     networks:
       - ${NETWORK_NAME}
     volumes:
@@ -14,13 +11,13 @@ services:
     environment:
       - LOG_LEVEL=${LOG_LEVEL} # Set the desired log level here
       - ENV=${ENV} # set as 'prod' for production and anything else for development
-      - TEMPORAL_ADDRESS=temporal-server-1.manuplex-uswest-2.local:7233
-      - TEMPORAL_NAMESPACE=default
+    env_file:
+      - .env
     labels:
       - "register-consul.enable=true"
       - "register-consul.service-id=agent-services-1"
       - "register-consul.service-name=postgres-write-read-service"
-      - "register-consul.check.healthcheck-endpoint=http://agent-services-1.manuplex-uswest-2.local:3000/services/health"
+      - "register-consul.check.healthcheck-endpoint=http://agent-services-1.orangebox-uswest-2.local:3000/services/health"
       - "register-consul.service-tags=backend,ob1,nestjs,dev,agentprocessing"
       - "register-consul.check.interval=15s"
       - "register-consul.check.timeout=1s"
@@ -31,22 +28,6 @@ services:
       options:
         max-size: "50m" # Rotate after 10MB
         max-file: "2" # Keep 3 files
-
-  worker-services-1:
-    build: ./worker-services-1
-    container_name: worker-services-1
-    hostname: worker-services-1.manuplex-uswest-2.local
-    networks:
-      - ${NETWORK_NAME}
-    volumes:
-      - ./certs:/tls
-    environment:
-      - LOG_LEVEL=${LOG_LEVEL} # Set the desired log level here
-      - ENV=${ENV} # set as 'prod' for production and anything else for development
-      - WORKER_COUNT=3 # Number of workers to run
-      - RESTART_DELAY=1000 # Delay in ms between restarts
-      - TEMPORAL_ADDRESS=temporal-server-1.manuplex-uswest-2.local:7233
-      - TEMPORAL_NAMESPACE=default
 
 networks:
   OB-dev-net1-overlay:

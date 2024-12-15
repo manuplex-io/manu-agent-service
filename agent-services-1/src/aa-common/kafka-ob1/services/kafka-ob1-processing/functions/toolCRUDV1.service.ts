@@ -24,7 +24,6 @@ export class ToolCRUDV1 {
     ) {
         this.validationPipe = new ValidationPipe({ transform: true, whitelist: true });
     }
-
     async CRUDToolRoutes(functionInput: CRUDFunctionInputExtended) {
         try {
             const { CRUDOperationName: operation, CRUDRoute: route, CRUDBody, routeParams, queryParams } = functionInput;
@@ -38,13 +37,16 @@ export class ToolCRUDV1 {
                 consultantOrgShortName: consultantPayload?.consultantOrgShortName,
                 personId: consultantPayload?.personId,
             };
-
             switch (`${operation}-${route}`) {
                 // Tools Routes
                 case `${CRUDOperationName.GET}-${CRUDToolRoute.LIST_TOOLS}`: {
+
                     const updatedQueryParams = {
-                        ...queryParams, consultantOrgShortName: consultantPayload?.consultantOrgShortName,
+                        ...queryParams,
+                        consultantOrgShortName: consultantPayload?.consultantOrgShortName,
                         personId: consultantPayload?.personId,
+                        limit: queryParams.limit ? Number(queryParams.limit) : undefined,
+                        page: queryParams.page ? Number(queryParams.page) : undefined
                     };
                     const validatedQuery = await this.validationPipe.transform(
                         updatedQueryParams,
@@ -63,15 +65,16 @@ export class ToolCRUDV1 {
                     return await this.toolsManagementService.getTool(routeParams.toolId);
                 }
 
-                case `${CRUDOperationName.GET}-${CRUDToolRoute.GET_FULL_TOOL}`: {
-                    if (!routeParams?.toolId) {
-                        throw new BadRequestException({
-                            message: 'Validation failed: toolId is required',
-                            details: { routeParams },
-                        });
-                    }
-                    return await this.toolsManagementService.getFullTool(routeParams.toolId);
-                }
+                // DEPRECATED: Replaced with GET TOOL
+                // case `${CRUDOperationName.GET}-${CRUDToolRoute.GET_FULL_TOOL}`: {
+                //     if (!routeParams?.toolId) {
+                //         throw new BadRequestException({
+                //             message: 'Validation failed: toolId is required',
+                //             details: { routeParams },
+                //         });
+                //     }
+                //     return await this.toolsManagementService.getFullTool(routeParams.toolId);
+                // }
 
                 case `${CRUDOperationName.POST}-${CRUDToolRoute.CREATE_TOOL}`: {
                     const validatedBody = await this.validationPipe.transform(
@@ -133,7 +136,7 @@ export class ToolCRUDV1 {
                         CRUDBodyWithConsultantPayload,
                         { metatype: OB1ToolDto.UpdateCategoryDto, type: 'body' }
                     );
-                    return await this.toolsCategoryService.updateToolCategory(routeParams.toolId, validatedBody);
+                    return await this.toolsCategoryService.updateToolCategory(routeParams.toolCategoryId, validatedBody);
                 }
 
                 case `${CRUDOperationName.DELETE}-${CRUDToolRoute.DELETE_CATEGORY}`: {
@@ -143,7 +146,7 @@ export class ToolCRUDV1 {
                             details: { routeParams },
                         });
                     }
-                    return await this.toolsCategoryService.deleteToolCategory(routeParams.toolId);
+                    return await this.toolsCategoryService.deleteToolCategory(routeParams.toolCategoryId);
                 }
 
                 // Tool Execution Routes
@@ -175,7 +178,7 @@ export class ToolCRUDV1 {
                     const toolRequest: OB1ToolDto.ToolRequestDto = {
                         toolId: routeParams.toolId,
                         toolInputVariables: CRUDBodyWithConsultantPayload?.toolInputVariables || {},
-                        toolInputENVVariables: CRUDBodyWithConsultantPayload?.toolInputENVVariables || {},
+                        toolENVInputVariables: CRUDBodyWithConsultantPayload?.toolENVInputVariables || {},
                         requestingServiceId: 'toolsCRUDV1',
                     };
                     this.logger.log(`1. Tool Request: ${JSON.stringify(toolRequest, null, 2)}`);

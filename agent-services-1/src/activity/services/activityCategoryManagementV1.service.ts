@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { OB1AgentActivityCategory } from '../entities/ob1-agent-activityCategory.entity';
@@ -17,8 +17,6 @@ export class ActivityCategoryManagementV1Service {
         createCategoryDto: OB1Activity.CreateCategory,
     ): Promise<OB1Activity.ServiceResponse<OB1Activity.CategoryResponse>> {
         try {
-            //this.logger.log(`createCategoryDto: ${JSON.stringify(createCategoryDto, null, 2)}`);
-            // Manually map the consultantOrgShortName to the appropriate field
             const transformedCategoryDto = {
                 ...createCategoryDto,
                 activityCategoryCreatedByPersonId: createCategoryDto.personId,
@@ -33,14 +31,12 @@ export class ActivityCategoryManagementV1Service {
                 data: this.mapToCategoryResponse(savedCategory),
             };
         } catch (error) {
-            return {
-                success: false,
-                error: {
-                    code: 'CATEGORY_CREATION_FAILED',
-                    message: 'Failed to create activity category',
-                    details: { error: error.message },
-                },
-            };
+            this.logger.error(`Failed to create activity category: ${error.message}`, error.stack);
+            throw new BadRequestException({
+                message: 'Failed to create activity category',
+                code: 'CATEGORY_CREATION_FAILED',
+                errorSuperDetails: { ...error },
+            });
         }
     }
 
@@ -61,14 +57,12 @@ export class ActivityCategoryManagementV1Service {
                 data: categories.map(this.mapToCategoryResponse),
             };
         } catch (error) {
-            return {
-                success: false,
-                error: {
-                    code: 'CATEGORY_FETCH_FAILED',
-                    message: 'Failed to fetch activity categories',
-                    details: { error: error.message },
-                },
-            };
+            this.logger.error(`Failed to fetch activity categories: ${error.message}`, error.stack);
+            throw new BadRequestException({
+                message: 'Failed to fetch activity categories',
+                code: 'CATEGORY_FETCH_FAILED',
+                errorSuperDetails: { ...error },
+            });
         }
     }
 
@@ -80,13 +74,10 @@ export class ActivityCategoryManagementV1Service {
             const category = await this.categoryRepository.findOne({ where: { activityCategoryId: id } });
 
             if (!category) {
-                return {
-                    success: false,
-                    error: {
-                        code: 'CATEGORY_NOT_FOUND',
-                        message: `Category with ID ${id} not found`,
-                    },
-                };
+                throw new BadRequestException({
+                    message: `Activity category with ID ${id} not found`,
+                    code: 'CATEGORY_NOT_FOUND',
+                });
             }
 
             return {
@@ -94,14 +85,12 @@ export class ActivityCategoryManagementV1Service {
                 data: this.mapToCategoryResponse(category),
             };
         } catch (error) {
-            return {
-                success: false,
-                error: {
-                    code: 'CATEGORY_FETCH_FAILED',
-                    message: 'Failed to fetch activity category',
-                    details: { error: error.message },
-                },
-            };
+            this.logger.error(`Failed to fetch activity category: ${error.message}`, error.stack);
+            throw new BadRequestException({
+                message: 'Failed to fetch activity category',
+                code: 'CATEGORY_FETCH_FAILED',
+                errorSuperDetails: { ...error },
+            });
         }
     }
 
@@ -114,13 +103,10 @@ export class ActivityCategoryManagementV1Service {
             const category = await this.categoryRepository.findOne({ where: { activityCategoryId: id } });
 
             if (!category) {
-                return {
-                    success: false,
-                    error: {
-                        code: 'CATEGORY_NOT_FOUND',
-                        message: `Category with ID ${id} not found`,
-                    },
-                };
+                throw new BadRequestException({
+                    message: `Activity category with ID ${id} not found`,
+                    code: 'CATEGORY_NOT_FOUND',
+                });
             }
 
             Object.assign(category, updateCategoryDto);
@@ -131,14 +117,12 @@ export class ActivityCategoryManagementV1Service {
                 data: this.mapToCategoryResponse(updatedCategory),
             };
         } catch (error) {
-            return {
-                success: false,
-                error: {
-                    code: 'CATEGORY_UPDATE_FAILED',
-                    message: 'Failed to update activity category',
-                    details: { error: error.message },
-                },
-            };
+            this.logger.error(`Failed to update activity category: ${error.message}`, error.stack);
+            throw new BadRequestException({
+                message: 'Failed to update activity category',
+                code: 'CATEGORY_UPDATE_FAILED',
+                errorSuperDetails: { ...error },
+            });
         }
     }
 
@@ -148,25 +132,20 @@ export class ActivityCategoryManagementV1Service {
             const result = await this.categoryRepository.delete(id);
 
             if (result.affected === 0) {
-                return {
-                    success: false,
-                    error: {
-                        code: 'CATEGORY_NOT_FOUND',
-                        message: `Category with ID ${id} not found`,
-                    },
-                };
+                throw new BadRequestException({
+                    message: `Activity category with ID ${id} not found`,
+                    code: 'CATEGORY_NOT_FOUND',
+                });
             }
 
             return { success: true };
         } catch (error) {
-            return {
-                success: false,
-                error: {
-                    code: 'CATEGORY_DELETE_FAILED',
-                    message: 'Failed to delete activity category',
-                    details: { error: error.message },
-                },
-            };
+            this.logger.error(`Failed to delete activity category: ${error.message}`, error.stack);
+            throw new BadRequestException({
+                message: 'Failed to delete activity category',
+                code: 'CATEGORY_DELETE_FAILED',
+                errorSuperDetails: { ...error },
+            });
         }
     }
 

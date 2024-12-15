@@ -147,6 +147,13 @@ export class OB1AgentActivities {
 
     @Column({
         type: 'jsonb',
+        comment: 'Schema for the ENV input parameters',
+        default: {},
+    })
+    activityENVInputSchema: Record<string, any>;
+
+    @Column({
+        type: 'jsonb',
         comment: 'Schema for the output parameters',
         default: {},
     })

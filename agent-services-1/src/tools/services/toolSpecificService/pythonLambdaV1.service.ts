@@ -20,7 +20,6 @@ import { OB1AgentToolExecutionLog } from '../../entities/ob1-agent-toolExecution
 
 import { OB1Tool } from '../../interfaces/tools.interface';
 import { OB1Lambda } from 'src/tools/interfaces/Lambda.interface';
-import { error } from 'console';
 
 @Injectable()
 export class PythonLambdaV1Service {
@@ -169,9 +168,9 @@ def lambda_handler(event, context):
         }
 
         // Validate the environment variable schema if provided
-        if (tool.toolENVinputSchema && Object.keys(tool.toolENVinputSchema).length > 0) {
+        if (tool.toolENVInputSchema && Object.keys(tool.toolENVInputSchema).length > 0) {
             this.logger.debug(`Validating environment variable schema for tool: ${tool.toolId}`);
-            this.ajvWithWhitlist.compile(tool.toolENVinputSchema);
+            this.ajvWithWhitlist.compile(tool.toolENVInputSchema);
         }
     }
 
@@ -211,7 +210,7 @@ def lambda_handler(event, context):
         }
 `;
         await fs.promises.writeFile(path.join(tempDir, 'main.py'), mainPyContent);
-        console.log("file written main.py")
+
         // Write requirements.txt
         const requirementsPath = path.join(tempDir, 'requirements.txt');
         await fs.promises.writeFile(requirementsPath, tool.toolPythonRequirements || '');
@@ -232,7 +231,7 @@ def lambda_handler(event, context):
         const zipPath = path.join(tempDir, 'function.zip');
         const output = fs.createWriteStream(zipPath);
         const archive = archiver('zip', { zlib: { level: 9 } });
-        console.log("zipPath",zipPath)
+
         output.on('close', async () => {
             const { size } = await fs.promises.stat(zipPath);
             const sizeInMB = (size / (1024 * 1024)).toFixed(2);
@@ -357,21 +356,14 @@ def lambda_handler(event, context):
     private validateSchema(input: any, schema: object, inputDescription: string): void {
         if (schema && Object.keys(schema).length > 0) {
             this.logger.debug(`Validating ${inputDescription} against schema: ${JSON.stringify(schema)}`);
-            
-            try{
+
             const validate = this.ajvWithWhitlist.compile(schema);
             const isValid = validate(input);
-            
-        
-            console.log("env valid check", isValid)
+
             if (!isValid) {
                 this.logger.error(`Validation errors for ${inputDescription}: ${JSON.stringify(validate.errors)}`);
                 throw new BadRequestException(`Invalid ${inputDescription}: ${JSON.stringify(validate.errors)}`);
             }
-        }
-            catch (error) {
-                console.log('Error generated while validating', error)
-             }
             // At this point, `input` should only contain keys whitelisted by the schema
             // due to Ajv's removeAdditional setting.
         }
@@ -380,7 +372,7 @@ def lambda_handler(event, context):
     async invokeLambda(request: {
         toolId: string;
         toolInputVariables: Record<string, any>;
-        toolInputENVVariables: Record<string, any>
+        toolENVInputVariables: Record<string, any>
     }): Promise<any> {
         const tool = await this.toolsRepo.findOne({ where: { toolId: request.toolId } });
         if (!tool) {
@@ -391,14 +383,14 @@ def lambda_handler(event, context):
         if (tool.toolStatus !== OB1Tool.ToolStatus.DEPLOYED) {
             await this.deployLambda(request.toolId);
         }
-        this.logger.debug(`5. ToolENV recieved: \n${JSON.stringify(request.toolInputENVVariables, null, 2)}`);
+        this.logger.debug(`5. ToolENV recieved: \n${JSON.stringify(request.toolENVInputVariables, null, 2)}`);
         this.logger.debug(`6. ToolInput recieved: \n${JSON.stringify(request.toolInputVariables, null, 2)}`);
         // Validate environment variables if a schema is provided
-        if (tool.toolENVinputSchema && Object.keys(tool.toolENVinputSchema).length > 0) {
-            this.validateSchema(request.toolInputENVVariables, tool.toolENVinputSchema, 'environment variable input');
+        if (tool.toolENVInputSchema && Object.keys(tool.toolENVInputSchema).length > 0) {
+            this.validateSchema(request.toolENVInputVariables, tool.toolENVInputSchema, 'environment variable input');
         }
 
-        console.log("env variable validation passed")
+
         // Validate tool input if a schema is provided
         if (tool.toolInputSchema && Object.keys(tool.toolInputSchema).length > 0) {
             this.validateSchema(request.toolInputVariables, tool.toolInputSchema, 'tool input');
@@ -408,7 +400,7 @@ def lambda_handler(event, context):
         try {
             const payload = {
                 input_variables: request.toolInputVariables,
-                env_variables: request.toolInputENVVariables,
+                env_variables: request.toolENVInputVariables,
             };
 
             this.logger.debug(`7. Lambda Payload: \n${JSON.stringify(payload, null, 2)}`);
@@ -440,7 +432,7 @@ def lambda_handler(event, context):
                 toolId: tool.toolId,
                 toolInputVariables: toolPythonRequest.toolInputVariables,
                 // Pass any environment variables needed here:
-                toolInputENVVariables: toolPythonRequest.toolInputENVVariables || {}
+                toolENVInputVariables: toolPythonRequest.toolENVInputVariables || {}
             });
 
             const executionTime = Date.now() - startTime;

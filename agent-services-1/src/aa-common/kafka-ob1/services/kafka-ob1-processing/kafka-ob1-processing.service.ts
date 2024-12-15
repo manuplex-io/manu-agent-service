@@ -4,14 +4,16 @@ import { OB1Global, OB1AgentService, generateDefaultErrorMessageResponseValue } 
 import { LLMRequestV1 } from 'src/llms/interfaces/llmV1.interfaces';
 import { OB1LLM } from 'src/llms/interfaces/llmV2.interfaces';
 import { OB1LLMDto } from 'src/llms/Dto/llmV2.Dto';
+import { OB1LLMV3Dto } from 'src/llms/Dto/llmV3.Dto';
 import { CRUDFunctionInput, CRUDFunctionInputExtended } from 'src/aa-common/kafka-ob1/interfaces/CRUD.interfaces';
 import { LLMServiceV1 } from 'src/llms/services/llmV1.service';
 import { LLMV2Service } from 'src/llms/services/llmV2.service';
+import { LLMV3Service } from 'src/llms/services/llmV3.service';
 import { PromptCRUDV1 } from 'src/aa-common/kafka-ob1/services/kafka-ob1-processing/functions/promptCRUDV1.service';
 import { ToolCRUDV1 } from 'src/aa-common/kafka-ob1/services/kafka-ob1-processing/functions/toolCRUDV1.service';
 import { ActivityCRUDV1 } from './functions/activityCRUDV1.service';
 import { WorkflowCRUDV1 } from './functions/workflowCRUDV1.service';
-
+import { LLMCRUDV1 } from './functions/llmCRUDV1.service';
 
 @Injectable()
 export class KafkaOb1ProcessingService {
@@ -21,10 +23,12 @@ export class KafkaOb1ProcessingService {
     constructor(
         private llmServiceV1: LLMServiceV1,
         private llmV2Service: LLMV2Service,
+        private llmV3Service: LLMV3Service,
         private promptCRUDV1: PromptCRUDV1,
         private toolCRUDV1: ToolCRUDV1,
         private activityCRUDV1: ActivityCRUDV1,
         private workflowCRUDV1: WorkflowCRUDV1,
+        private llmCRUDV1: LLMCRUDV1,
 
     ) { }
 
@@ -44,6 +48,14 @@ export class KafkaOb1ProcessingService {
                 const validatedInput = await this.validateInput(functionInput, OB1LLMDto.LLMRequest, functionName) as OB1LLMDto.LLMRequest;
                 const inputWithTracing = this.addTracingMetadata(validatedInput, OB1Headers) as OB1LLM.LLMRequest;
                 return this.llmV2Service.generateResponseWithStructuredOutputNoTools(inputWithTracing);
+            }
+
+            case 'LLMgenerateResponse-V3': {
+                const validatedInput = await this.validateInput(functionInput, CRUDFunctionInput, functionName) as CRUDFunctionInput;
+                const inputWithTracing = this.addTracingMetadata(validatedInput, OB1Headers) as CRUDFunctionInputExtended;
+                // Request can be large due to image/audio uploads
+                // this.logger.log(`llmCRUD-V1: inputWithTracing:\n${JSON.stringify(inputWithTracing, null, 2)}`);
+                return this.llmCRUDV1.CRUDLLMRoutes(inputWithTracing);
             }
 
             case 'promptCRUD-V1': {

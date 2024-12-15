@@ -44,8 +44,11 @@ export class PromptCRUDV1 {
             switch (`${operation}-${route}`) {
                 case `${CRUDOperationName.GET}-${CRUDPromptRoute.LIST_PROMPTS}`: {
                     const updatedQueryParams = {
-                        ...queryParams, consultantOrgShortName: consultantPayload?.consultantOrgShortName,
+                        ...queryParams,
+                        consultantOrgShortName: consultantPayload?.consultantOrgShortName,
                         personId: consultantPayload?.personId,
+                        limit: queryParams.limit ? Number(queryParams.limit) : undefined,
+                        page: queryParams.page ? Number(queryParams.page) : undefined
                     };
                     const validatedQuery = await this.validationPipe.transform(
                         updatedQueryParams,
@@ -148,6 +151,7 @@ export class PromptCRUDV1 {
                     // };
 
                     // this.logger.log(`CRUDPromptRoute.EXECUTE_WITHOUT_USER_PROMPT: request:\n${JSON.stringify(request, null, 2)}`);
+
                     return await this.promptExecutionV1Service.executePromptWithoutUserPromptWithTools(validatedBody);
                 }
 

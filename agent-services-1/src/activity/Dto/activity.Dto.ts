@@ -1,6 +1,6 @@
 // /scr/activity/Dto/activity.Dto.ts
 
-import { IsNotEmpty, IsString, IsOptional, IsUUID, IsObject, IsArray, IsEnum } from 'class-validator';
+import { IsNotEmpty, IsString, IsOptional, IsUUID, IsObject, IsArray, IsEnum, IsNumber } from 'class-validator';
 import { OB1Activity } from '../interfaces/activity.interface';
 
 export namespace OB1ActivityDto {
@@ -33,6 +33,10 @@ export namespace OB1ActivityDto {
         @IsObject()
         activityInputSchema: Record<string, any>;
 
+        @IsOptional()
+        @IsObject()
+        activityENVInputSchema?: Record<string, any>;
+
         @IsNotEmpty()
         @IsObject()
         activityOutputSchema: Record<string, any>;
@@ -50,6 +54,17 @@ export namespace OB1ActivityDto {
         @IsNotEmpty()
         @IsString()
         consultantOrgShortName: string;
+    }
+
+    export class ActivityExecutionRequestDto {
+
+
+        @IsObject()
+        activityInputVariables: Record<string, any>;
+
+        @IsOptional()
+        @IsObject()
+        activityENVInputVariables?: Record<string, any>;
     }
 
     // export class UpdateActivityDto {
@@ -94,11 +109,11 @@ export namespace OB1ActivityDto {
         search?: string;
 
         @IsOptional()
-        @IsNotEmpty()
+        @IsNumber()
         page?: number;
 
         @IsOptional()
-        @IsNotEmpty()
+        @IsNumber()
         limit?: number;
 
         @IsNotEmpty()
