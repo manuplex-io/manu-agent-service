@@ -2,7 +2,7 @@ services:
   worker-services-1:
     image: 471112823179.dkr.ecr.us-west-2.amazonaws.com/ob1/worker-services:latest
     container_name: worker-services-1
-    hostname: worker-services-1.orangebox-uswest-2.local
+    hostname: worker-services-1.manuplex-uswest-2.local
     networks:
       - ${NETWORK_NAME}
     env_file:
@@ -32,9 +32,7 @@ volumes:
     driver: local
 
 networks:
-  OB-local-net1-overlay:
+  MP-dev-net1-overlay:
     external: true
-  OB-dev-net1-overlay:
-    external: true
-  OB-prod-net1-overlay:
+  MP-prod-net1-overlay:
     external: true

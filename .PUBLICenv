@@ -1,12 +1,12 @@
 ENV=dev
-NETWORK_NAME=OB-dev-net1-overlay
+NETWORK_NAME=MP-dev-net1-overlay
 LOG_LEVEL=debug
 
 SERVICE_NAME=agent-services
 SERVICE_ID=agent-services-1
 KAFKAJS_NO_PARTITIONER_WARNING=1
 LOCAL_USER=user
-OB1_DB_HOST=postgres-service-1.orangebox-uswest-2.local
+OB1_DB_HOST=postgres-service-1.manuplex-uswest-2.local
 OB1_DB_PORT=5432
 
 OB1_DB_DATABASE_AGENTSERVICE=ob1-agentServices-db
