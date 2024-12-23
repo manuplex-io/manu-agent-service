@@ -50,7 +50,7 @@ services:
       replicas: 1
       placement:
         constraints:
-          "node.labels.environment == prod"
+          - "node.labels.environment == prod"
       # - "node.labels.aarch == arm64"
 networks:
   MP-prod-net1-overlay:
