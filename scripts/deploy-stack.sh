@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Navigate to the directory containing the stack file
-cd /home/ec2-user/manu-agent-service || { echo "Failed to navigate to stack directory"; exit 1; }
+# cd /home/ec2-user/manu-agent-service || { echo "Failed to navigate to stack directory"; exit 1; }
 
 echo "Authenticating with ECR..."
 aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin 637423298319.dkr.ecr.us-west-2.amazonaws.com
@@ -12,7 +12,7 @@ docker pull 637423298319.dkr.ecr.us-west-2.amazonaws.com/manu/agent-services:lat
 
 # Deploy the Docker stack
 echo "Deploying Docker stack..."
-docker stack deploy -c docker-stack.yml manu-agent-services-stack || { echo "Failed to deploy Docker stack"; exit 1; }
+docker stack deploy -c ../docker-stack.yml manu-agent-services-stack || { echo "Failed to deploy Docker stack"; exit 1; }
 
 # Check if the stack was deployed successfully
 echo "Deployment Successful"

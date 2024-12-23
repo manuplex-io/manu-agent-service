@@ -3,6 +3,7 @@ import { AppModule } from './app.module';
 import { Transport, MicroserviceOptions } from '@nestjs/microservices';
 
 async function bootstrap() {
+  console.log("app started")
   const app = await NestFactory.create(AppModule, {
     logger: ['log', 'debug', 'error', 'warn', 'verbose'], // Adjust based on LOG_LEVEL
   });
