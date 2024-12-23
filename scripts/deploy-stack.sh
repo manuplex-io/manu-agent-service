@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Navigate to the directory containing the stack file
-cd /home/ec2-user/manu-agent-services || { echo "Failed to navigate to stack directory"; exit 1; }
+cd /home/ec2-user/manu-agent-service || { echo "Failed to navigate to stack directory"; exit 1; }
 
 echo "Authenticating with ECR..."
 aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin 637423298319.dkr.ecr.us-west-2.amazonaws.com
