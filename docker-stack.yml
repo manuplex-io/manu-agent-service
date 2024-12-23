@@ -15,7 +15,7 @@ services:
       - OB1_DB_HOST=postgres-service-1.manuplex-uswest-2.local
       - OB1_DB_PORT=5432
       - OB1_DB_DATABASE_AGENTSERVICE=ob1-agentServices-db-prod
-      - OB1_DB_USERNAME_AGENTSERVICE_DEV=ob1-agentServices-db-user
+      - OB1_DB_USERNAME_AGENTSERVICE=ob1-agentServices-db-user
       - AWS_REGION=us-west-2
       # LAMBDA_ROLE_ARN: /run/secrets/AGENT_SERVICE_LAMBDA_ROLE_ARN
       - REDIS_STACK_HOST=redis-stack-server-1.manuplex-uswest-2.local
