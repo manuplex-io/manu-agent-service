@@ -13,9 +13,6 @@ phases:
       - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
       - IMAGE_TAG=${COMMIT_HASH:=latest}
       - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $REPOSITORY_URI
-      - echo "Setting up buildx..."
-      - docker buildx create --use --name mybuilder
-      - docker buildx inspect mybuilder --bootstrap
   build:
     commands:
       - echo Build started on `date`
