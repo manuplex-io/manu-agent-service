@@ -1,0 +1,89 @@
+services:
+  agent-services-1:
+    image: 637423298319.dkr.ecr.us-west-2.amazonaws.com/manu/agent-services:latest
+    hostname: agent-services-1.manuplex-uswest-2.local
+    networks: 
+      - MP-prod-net1-overlay
+    volumes: 
+      - agent-services-1-logs:/app/logs
+    environment:
+      - LOG_LEVEL=debug
+      - ENV=prod
+      - SERVICE_NAME=agent-services
+      - SERVICE_ID=agent-services-1
+      - KAFKAJS_NO_PARTITIONER_WARNING=1
+      - OB1_DB_HOST=postgres-service-1.manuplex-uswest-2.local
+      - OB1_DB_PORT=5432
+      - OB1_DB_DATABASE_AGENTSERVICE=ob1-agentServices-db-prod
+      - OB1_DB_USERNAME_AGENTSERVICE=ob1-agentServices-db-user
+      - AWS_REGION=us-west-2
+      # LAMBDA_ROLE_ARN: /run/secrets/AGENT_SERVICE_LAMBDA_ROLE_ARN
+      - REDIS_STACK_HOST=redis-stack-server-1.manuplex-uswest-2.local
+      - REDIS_STACK_PORT=6379
+      - REDIS_DEFAULT_TTL_FOR_TEMPORAL_WORKFLOW=60
+      - TEMPORAL_NAMESPACE=ob1-temporal-namespace
+      - TEMPORAL_ADDRESS=temporal-server-1.manuplex-uswest-2.local:7233
+      - TEMPORAL_WORKFLOW_TIMEOUT_FOR_SYNC=60000
+    secrets:
+      - AGENT_SERVICES_OB1_DB_PASSWORD
+      # - AGENT_SERVICES_ANTHROPIC_API_KEY
+      - AGENT_SERVICES_OPENAI_API_KEY
+      - AGENT_SERVICES_PORTKEY_API_KEY
+      - AGENT_SERVICES_REDIS_STACK_PASSWORD
+      - AGENT_SERVICES_AWS_ACCESS_KEY_ID
+      - AGENT_SERVICES_AWS_SECRET_ACCESS_KEY
+      - AGENT_SERVICES_LAMBDA_ROLE_ARN
+    command: >
+      sh -c "
+      export OB1_DB_PASSWORD_AGENTSERVICE=$$(cat /run/secrets/AGENT_SERVICES_OB1_DB_PASSWORD | tr -d '\\n') &&
+      export OPENAI_API_KEY=$$(cat /run/secrets/AGENT_SERVICES_OPENAI_API_KEY) &&
+      export AWS_ACCESS_KEY_ID=$$(cat /run/secrets/AGENT_SERVICES_AWS_ACCESS_KEY_ID) &&
+      export AWS_SECRET_ACCESS_KEY=$$(cat /run/secrets/AGENT_SERVICES_AWS_SECRET_ACCESS_KEY) &&
+      export LAMBDA_ROLE_ARN=$$(cat /run/secrets/AGENT_SERVICES_LAMBDA_ROLE_ARN) &&
+      export PORTKEY_API_KEY=$$(cat /run/secrets/AGENT_SERVICES_PORTKEY_API_KEY) &&
+      export REDIS_STACK_PASSWORD=$$(cat /run/secrets/AGENT_SERVICES_REDIS_STACK_PASSWORD) &&
+      echo \"SERVICE_ID: $$SERVICE_ID\" &&
+      node --trace-warnings dist/main.js"
+    labels:
+      - "register-consul.enable=true"
+      - "register-consul.service-id=agent-services-1"
+      - "register-consul.service-name=postgres-write-read-service"
+      - "register-consul.check.healthcheck-endpoint=http://agent-services-1.manuplex-uswest-2.local:3000/services/health"
+      - "register-consul.service-tags=backend,ob1,nestjs,dev,agentprocessing"
+      - "register-consul.check.interval=15s"
+      - "register-consul.check.timeout=1s"
+      - "register-consul.check.deregister=72h"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "2"
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - "node.labels.environment == prod"
+      # - "node.labels.aarch == arm64"
+networks:
+  MP-prod-net1-overlay:
+    external: true
+volumes:
+  agent-services-1-logs:
+    driver: local
+secrets:
+  AGENT_SERVICES_OB1_DB_PASSWORD:
+    external: true
+  # AGENT_SERVICES_ANTHROPIC_API_KEY:
+  #   external: true
+  AGENT_SERVICES_OPENAI_API_KEY:
+    external: true
+  AGENT_SERVICES_PORTKEY_API_KEY:
+    external: true
+  AGENT_SERVICES_REDIS_STACK_PASSWORD:
+    external: true
+  AGENT_SERVICES_AWS_ACCESS_KEY_ID:
+    external: true
+  AGENT_SERVICES_AWS_SECRET_ACCESS_KEY:
+    external: true
+  AGENT_SERVICES_LAMBDA_ROLE_ARN:
+    external: true
