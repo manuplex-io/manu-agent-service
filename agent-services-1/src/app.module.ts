@@ -13,6 +13,7 @@ import { PromptModule } from './prompts/prompts.module';
 import { ToolsModule } from './tools/tools.module';
 import { ActivityModule } from './activity/activity.module';
 import { WorkflowModule } from './workflows/workflows.module';
+import { AppController } from './app.controller';
 
 @Module({
   imports: [
@@ -30,7 +31,7 @@ import { WorkflowModule } from './workflows/workflows.module';
     TSValidationOb1Module,
   ],
   controllers: [
-
+    AppController
   ],
   providers: [Logger,
 
