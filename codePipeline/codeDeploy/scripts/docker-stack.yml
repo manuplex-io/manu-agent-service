@@ -2,10 +2,10 @@ services:
   agent-services-1:
     image: 637423298319.dkr.ecr.us-west-2.amazonaws.com/manu/agent-services:latest
     hostname: agent-services-1.manuplex-uswest-2.local
-    networks: 
+    networks:
       - OB-prod-net1-overlay
-    volumes: 
-      - agent-services-1-logs:/app/logs
+    volumes:
+      - /ob1-efs/prod-cluster-1/agent-services/agent-services-logs:/app/logs
     environment:
       - LOG_LEVEL=debug
       - ENV=prod
@@ -58,12 +58,12 @@ services:
       options:
         max-size: "50m"
         max-file: "2"
-    
+
 networks:
   OB-prod-net1-overlay:
     external: true
 volumes:
-  agent-services-1-logs:
+  agent-services-logs:
     driver: local
 secrets:
   AGENT_SERVICES_OB1_DB_PASSWORD:
