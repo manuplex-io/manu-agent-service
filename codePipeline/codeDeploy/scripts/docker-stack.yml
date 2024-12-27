@@ -3,7 +3,7 @@ services:
     image: 637423298319.dkr.ecr.us-west-2.amazonaws.com/manu/agent-services:latest
     hostname: agent-services-1.manuplex-uswest-2.local
     networks: 
-      - MP-prod-net1-overlay
+      - OB-prod-net1-overlay
     volumes: 
       - agent-services-1-logs:/app/logs
     environment:
@@ -27,21 +27,21 @@ services:
     secrets:
       - AGENT_SERVICES_OB1_DB_PASSWORD
       # - AGENT_SERVICES_ANTHROPIC_API_KEY
-      - AGENT_SERVICES_OPENAI_API_KEY
+      - OPENAI_API_KEY
       - AGENT_SERVICES_PORTKEY_API_KEY
-      - AGENT_SERVICES_REDIS_STACK_PASSWORD
+      - REDIS_STACK_PASSWORD
       - AGENT_SERVICES_AWS_ACCESS_KEY_ID
       - AGENT_SERVICES_AWS_SECRET_ACCESS_KEY
       - AGENT_SERVICES_LAMBDA_ROLE_ARN
     command: >
       sh -c "
       export OB1_DB_PASSWORD_AGENTSERVICE=$$(cat /run/secrets/AGENT_SERVICES_OB1_DB_PASSWORD | tr -d '\\n') &&
-      export OPENAI_API_KEY=$$(cat /run/secrets/AGENT_SERVICES_OPENAI_API_KEY) &&
+      export OPENAI_API_KEY=$$(cat /run/secrets/OPENAI_API_KEY) &&
       export AWS_ACCESS_KEY_ID=$$(cat /run/secrets/AGENT_SERVICES_AWS_ACCESS_KEY_ID) &&
       export AWS_SECRET_ACCESS_KEY=$$(cat /run/secrets/AGENT_SERVICES_AWS_SECRET_ACCESS_KEY) &&
       export LAMBDA_ROLE_ARN=$$(cat /run/secrets/AGENT_SERVICES_LAMBDA_ROLE_ARN) &&
       export PORTKEY_API_KEY=$$(cat /run/secrets/AGENT_SERVICES_PORTKEY_API_KEY) &&
-      export REDIS_STACK_PASSWORD=$$(cat /run/secrets/AGENT_SERVICES_REDIS_STACK_PASSWORD) &&
+      export REDIS_STACK_PASSWORD=$$(cat /run/secrets/REDIS_STACK_PASSWORD) &&
       echo \"SERVICE_ID: $$SERVICE_ID\" &&
       node --trace-warnings dist/main.js"
     labels:
@@ -62,10 +62,9 @@ services:
       replicas: 1
       placement:
         constraints:
-          - "node.labels.environment == prod"
       # - "node.labels.aarch == arm64"
 networks:
-  MP-prod-net1-overlay:
+  OB-prod-net1-overlay:
     external: true
 volumes:
   agent-services-1-logs:
@@ -75,11 +74,11 @@ secrets:
     external: true
   # AGENT_SERVICES_ANTHROPIC_API_KEY:
   #   external: true
-  AGENT_SERVICES_OPENAI_API_KEY:
+  OPENAI_API_KEY:
     external: true
   AGENT_SERVICES_PORTKEY_API_KEY:
     external: true
-  AGENT_SERVICES_REDIS_STACK_PASSWORD:
+  REDIS_STACK_PASSWORD:
     external: true
   AGENT_SERVICES_AWS_ACCESS_KEY_ID:
     external: true
