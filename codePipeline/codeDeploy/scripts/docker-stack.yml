@@ -58,10 +58,6 @@ services:
       options:
         max-size: "50m"
         max-file: "2"
-    deploy:
-      placement:
-        constraints:
-          - "node.labels.avoid != true"
 
 networks:
   OB-prod-net1-overlay:
