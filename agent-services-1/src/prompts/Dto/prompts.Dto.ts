@@ -1,7 +1,7 @@
 // /scr/prompt/Dto/prompt.Dto.ts
 
 import { IsNotEmpty, IsString, IsOptional, IsUUID, IsObject, IsArray, IsEnum, ValidateNested, IsBoolean, IsNumber, } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Expose, Type } from 'class-transformer';
 import { OB1Prompt } from '../interfaces/prompt.interface';
 import { OB1LLM } from '../../llms/interfaces/llmV2.interfaces';
 import { DynamicObjectValidator } from './DynamicObject.validator';
@@ -215,6 +215,11 @@ export namespace OB1PromptDto {
         @IsString()
         userPrompt: string;
 
+        @IsOptional()
+        @IsArray()
+        @ValidateNested({ each: true })
+        messageHistory?: (OB1LLM.NonToolMessage | OB1LLM.ChatCompletionToolMessageParam)[];
+
     }
 
     export class ExecutePromptWithoutUserPromptDto extends ExecutePromptBaseDto {
@@ -224,6 +229,12 @@ export namespace OB1PromptDto {
             [key: string]: any;
         };
 
+        @IsOptional()
+        @IsArray()
+        @ValidateNested({ each: true })
+        @Type(() => OB1LLM.NonToolMessage) // Use correct type here
+        @Expose()
+        messageHistory?: (OB1LLM.NonToolMessage | OB1LLM.ChatCompletionToolMessageParam)[];
     }
 
 

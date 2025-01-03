@@ -484,6 +484,7 @@ export class PromptExecutionV1Service {
                     ...promptRequest.llmConfig,
                 },
                 ...availableTools && { inputTools: availableTools, },
+                messageHistory : promptRequest.messageHistory
                 //inputTools: availableTools,
             };
             this.logger.log(`1. LLM Request (check Tools):\n${JSON.stringify(llmRequest, null, 2)}`);
@@ -644,6 +645,7 @@ export class PromptExecutionV1Service {
             availableTools: availableTools,
             systemPrompt: processedSystemPrompt,
             userPrompt: processedUserPrompt,
+            messageHistory:promptRequest.messageHistory,
         };
 
 
