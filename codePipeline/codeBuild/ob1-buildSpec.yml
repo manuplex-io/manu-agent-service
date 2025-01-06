@@ -41,4 +41,5 @@ artifacts:
     - image_tag.txt
     - previous_image_tag.txt
     - appspec_healthcheck.yml
+    - appspec_greenstack.yml
   discard-paths: no
