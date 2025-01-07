@@ -34,7 +34,17 @@ import { OB1AgentActivityExecution } from '../../activity/entities/ob1-agent-act
         const isLocalEnv = ['local', 'localhost'].includes(process.env.ENV);
         const isDevEnv = process.env.ENV === 'dev';
         const isProdEnv = process.env.ENV === 'prod';
-
+        console.log('isLocalEnv', isLocalEnv);
+        console.log('username', isLocalEnv
+          ? process.env.OB1_DB_USERNAME_AGENTSERVICE_LOCAL
+          : isDevEnv
+            ? process.env.OB1_DB_USERNAME_AGENTSERVICE_DEV
+            : process.env.OB1_DB_USERNAME_AGENTSERVICE);
+        console.log('password', isLocalEnv
+          ? process.env.OB1_DB_PASSWORD_AGENTSERVICE_LOCAL
+          : isDevEnv
+            ? process.env.OB1_DB_PASSWORD_AGENTSERVICE_DEV
+            : process.env.OB1_DB_PASSWORD_AGENTSERVICE);
         return {
           type: 'postgres',
           host: process.env.OB1_DB_HOST,
@@ -65,7 +75,7 @@ import { OB1AgentActivityExecution } from '../../activity/entities/ob1-agent-act
             OB1AgentActivityCategory,
             OB1AgentActivityExecution,
           ], // Add the entities relevant to this DB
-          synchronize: isLocalEnv || isDevEnv, // Synchronize only in 'local', 'localhost', or 'dev' environments
+          // synchronize: isLocalEnv || isDevEnv, // Synchronize only in 'local', 'localhost', or 'dev' environments
         };
       },
       dataSourceFactory: async (options) => {

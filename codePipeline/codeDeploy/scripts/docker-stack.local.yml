@@ -8,14 +8,14 @@ services:
       - agent-services-logs:/app/logs
     environment:
       - LOG_LEVEL=debug
-      - ENV=prod
+      - ENV=local
       - SERVICE_NAME=agent-services
       - SERVICE_ID=agent-services-1
       - KAFKAJS_NO_PARTITIONER_WARNING=1
       - OB1_DB_HOST=postgres-service-1.manuplex-uswest-2.local
       - OB1_DB_PORT=5432
       - OB1_DB_DATABASE_AGENTSERVICE=ob1-agentServices-db-prod
-      - OB1_DB_USERNAME_AGENTSERVICE=ob1-agentServices-db-user
+      - OB1_DB_USERNAME_AGENTSERVICE_LOCAL=ob1-agentServices-db-user
       - AWS_REGION=us-west-2
       # LAMBDA_ROLE_ARN: /run/secrets/AGENT_SERVICE_LAMBDA_ROLE_ARN
       - REDIS_STACK_HOST=redis-stack-server-1.manuplex-uswest-2.local
@@ -35,7 +35,7 @@ services:
       - AGENT_SERVICES_LAMBDA_ROLE_ARN
     command: >
       sh -c "
-      export OB1_DB_PASSWORD_AGENTSERVICE=$$(cat /run/secrets/AGENT_SERVICES_OB1_DB_PASSWORD | tr -d '\\n') &&
+      export OB1_DB_PASSWORD_AGENTSERVICE_LOCAL=$$(cat /run/secrets/AGENT_SERVICES_OB1_DB_PASSWORD | tr -d '\\n') &&
       export OPENAI_API_KEY=$$(cat /run/secrets/OPENAI_API_KEY) &&
       export AWS_ACCESS_KEY_ID=$$(cat /run/secrets/AGENT_SERVICES_AWS_ACCESS_KEY_ID) &&
       export AWS_SECRET_ACCESS_KEY=$$(cat /run/secrets/AGENT_SERVICES_AWS_SECRET_ACCESS_KEY) &&
