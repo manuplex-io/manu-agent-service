@@ -44,15 +44,15 @@ services:
       export REDIS_STACK_PASSWORD=$$(cat /run/secrets/REDIS_STACK_PASSWORD) &&
       echo \"SERVICE_ID: $$SERVICE_ID\" &&
       node --trace-warnings dist/main.js"
-    labels:
-      - "register-consul.enable=true"
-      - "register-consul.service-id=agent-services-1"
-      - "register-consul.service-name=agent-services"
-      - "register-consul.check.healthcheck-endpoint=http://agent-services-1.manuplex-uswest-2.local:3000/services/health"
-      - "register-consul.service-tags=agent-services,nestjs,prod,agentprocessing"
-      - "register-consul.check.interval=15s"
-      - "register-consul.check.timeout=1s"
-      - "register-consul.check.deregister=72h"
+    deploy:
+      labels:
+        - "register-consul.enable=true"
+        - "register-consul.service-name=manu-agent-service"
+        - "register-consul.healthcheck-endpoint.endurl=http://agent-services-1.manuplex-uswest-2.local:3000/services/health"
+        - "register-consul.service-tags=agent-services,nestjs,prod,agentprocessing"
+        - "register-consul.check.interval=10s"
+        - "register-consul.check.timeout=5s"
+        - "register-consul.check.deregister=72h"
     logging:
       driver: "json-file"
       options:
