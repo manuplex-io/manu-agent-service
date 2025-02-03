@@ -4,6 +4,7 @@ import { Injectable, ValidationPipe, Logger, BadRequestException } from '@nestjs
 import { WorkflowManagementV1Service } from 'src/workflows/services/workflowManagementV1.service';
 import { WorkflowTestingV1Service } from 'src/workflows/services/testing/workflowTestingV1.service';
 import { WorkflowExecutionV1Service } from 'src/workflows/services/execution/workflowExecutionV1.service';
+import { WorkflowExecutionV2Service } from 'src/workflows/services/execution/workflowExecutionV2.service';
 import { WorkflowCategoryManagementV1Service } from 'src/workflows/services/workflowCategoryManagementV1.service';
 import {
     CRUDFunctionInputExtended,
@@ -23,6 +24,7 @@ export class WorkflowCRUDV1 {
         private readonly workflowTestingService: WorkflowTestingV1Service,
         private readonly workflowCategoryService: WorkflowCategoryManagementV1Service,
         private readonly workflowExecutionService: WorkflowExecutionV1Service,
+        private readonly workflowExecutionV2Service: WorkflowExecutionV2Service,
     ) {
         this.validationPipe = new ValidationPipe({
             transform: true,
@@ -71,7 +73,6 @@ export class WorkflowCRUDV1 {
 
             this.logger.debug(`CRUDWorkflowRoutes: functionInput:\n${JSON.stringify(functionInput, null, 2)}`);
             this.logger.debug(`CRUDWorkflowRoutes: CRUDBodyWithConsultantPayload:\n${JSON.stringify(CRUDBodyWithConsultantPayload, null, 2)}`);
-
             switch (`${operation}-${route}`) {
                 // Workflow Routes
                 case `${CRUDOperationName.GET}-${CRUDWorkflowRoute.LIST_WORKFLOWS}`: {
@@ -295,6 +296,33 @@ export class WorkflowCRUDV1 {
                         workflowExecutionType: 'scheduled',
                     });
                 }
+                
+                // EXPERIMENTAL
+                // case `${CRUDOperationName.POST}-${CRUDWorkflowRoute.EXECUTE_WORKFLOW_ASYNC_MULTIPLE}`: {
+                //     debugger;
+                //     if (!routeParams?.workflowId) {
+                //         throw new BadRequestException({
+                //             message: 'Validation failed: workflowId is required',
+                //             details: { routeParams },
+                //         });
+                //     }
+                //     const validatedBody = await this.validationPipe.transform(
+                //         CRUDBodyWithConsultantPayload,
+                //         { metatype: WorkflowDto.ExecuteWorkflowAsyncMultipleDto, type: 'body' },
+                //     );
+                //     return await this.workflowExecutionService.ExecuteAnyWorkflowWithWorkflowId({
+                //         workflowId: routeParams.workflowId,
+                //         workflowInputVariables: validatedBody.workflowInputVariables,
+                //         workflowENVInputVariables: validatedBody?.workflowENVInputVariables,
+                //         workflowExecutionConfig: validatedBody?.workflowExecutionConfig,
+                //         consultantOrgShortName: validatedBody.consultantOrgShortName,
+                //         personId: validatedBody.personId,
+                //         requestId: functionInput.requestId,
+                //         requestMetadata: functionInput.requestMetadata,
+                //         workflowExecutionType: 'asyncMultiple',
+                //         workflowIds: validatedBody.workflowIds,
+                //     });
+                // }
 
                 case `${CRUDOperationName.GET}-${CRUDWorkflowRoute.GET_WORKFLOW_EXECUTION_STATUS}`: {
                     if (!routeParams?.temporalWorkflowId) {
@@ -304,6 +332,158 @@ export class WorkflowCRUDV1 {
                         });
                     }
                     return await this.workflowExecutionService.getWorkflowExecutionStatus(routeParams.temporalWorkflowId);
+                }
+                case `${CRUDOperationName.GET}-${CRUDWorkflowRoute.GET_WORKFLOW_CODE}`: {
+                    if (!queryParams?.workflowExternalName) {
+                        throw new BadRequestException({
+                            message: 'Validation failed: workflowExternalName is required',
+                            details: { queryParams },
+                        });
+                    }
+                    return await this.workflowExecutionService.loadWorkflowCode(queryParams.workflowExternalName);
+                }
+
+                //Execute Workflow
+                case `${CRUDOperationName.POST}-${CRUDWorkflowRoute.EXECUTE_WORKFLOW_V2}`: {
+                    if (!routeParams?.workflowId) {
+                        throw new BadRequestException({
+                            message: 'Validation failed: workflowId is required',
+                            details: { routeParams },
+                        });
+                    }
+
+
+                    const validatedBody = await this.validationPipe.transform(
+                        CRUDBodyWithConsultantPayload,
+                        { metatype: WorkflowDto.ExecuteWorkflowDto, type: 'body' },
+                    );
+                    return await this.workflowExecutionV2Service.ExecuteAnyWorkflowWithWorkflowId({
+                        workflowId: routeParams.workflowId,
+                        workflowInputVariables: validatedBody.workflowInputVariables,
+                        workflowENVInputVariables: validatedBody?.workflowENVInputVariables,
+                        workflowExecutionConfig: validatedBody?.workflowExecutionConfig,
+                        consultantOrgShortName: validatedBody.consultantOrgShortName,
+                        personId: validatedBody.personId,
+                        requestId: functionInput.requestId,
+                        requestMetadata: functionInput.requestMetadata,
+                        workflowExecutionType: 'sync',
+                    });
+                }
+                case `${CRUDOperationName.POST}-${CRUDWorkflowRoute.EXECUTE_WORKFLOW_SYNC_V2}`: {
+                    if (!routeParams?.workflowId) {
+                        throw new BadRequestException({
+                            message: 'Validation failed: workflowId is required',
+                            details: { routeParams },
+                        });
+                    }
+                    const validatedBody = await this.validationPipe.transform(
+                        CRUDBodyWithConsultantPayload,
+                        { metatype: WorkflowDto.ExecuteWorkflowDto, type: 'body' },
+                    );
+                    return await this.workflowExecutionV2Service.ExecuteAnyWorkflowWithWorkflowId({
+                        workflowId: routeParams.workflowId,
+                        workflowInputVariables: validatedBody.workflowInputVariables,
+                        workflowENVInputVariables: validatedBody?.workflowENVInputVariables,
+                        workflowExecutionConfig: validatedBody?.workflowExecutionConfig,
+                        workflowScheduleConfig: validatedBody?.workflowScheduleConfig,
+                        consultantOrgShortName: validatedBody.consultantOrgShortName,
+                        personId: validatedBody.personId,
+                        requestId: functionInput.requestId,
+                        requestMetadata: functionInput.requestMetadata,
+                        workflowExecutionType: 'sync',
+                    });
+                }
+
+                case `${CRUDOperationName.POST}-${CRUDWorkflowRoute.EXECUTE_WORKFLOW_ASYNC_V2}`: {
+                    if (!routeParams?.workflowId) {
+                        throw new BadRequestException({
+                            message: 'Validation failed: workflowId is required',
+                            details: { routeParams },
+                        });
+                    }
+                    const validatedBody = await this.validationPipe.transform(
+                        CRUDBodyWithConsultantPayload,
+                        { metatype: WorkflowDto.ExecuteWorkflowDto, type: 'body' },
+                    );
+                    return await this.workflowExecutionV2Service.ExecuteAnyWorkflowWithWorkflowId({
+                        workflowId: routeParams.workflowId,
+                        workflowInputVariables: validatedBody.workflowInputVariables,
+                        workflowENVInputVariables: validatedBody?.workflowENVInputVariables,
+                        workflowExecutionConfig: validatedBody?.workflowExecutionConfig,
+                        consultantOrgShortName: validatedBody.consultantOrgShortName,
+                        personId: validatedBody.personId,
+                        requestId: functionInput.requestId,
+                        requestMetadata: functionInput.requestMetadata,
+                        workflowExecutionType: 'async',
+                    });
+                }
+
+                case `${CRUDOperationName.POST}-${CRUDWorkflowRoute.EXECUTE_WORKFLOW_SCHEDULED_V2}`: {
+                    if (!routeParams?.workflowId) {
+                        throw new BadRequestException({
+                            message: 'Validation failed: workflowId is required',
+                            details: { routeParams },
+                        });
+                    }
+                    const validatedBody = await this.validationPipe.transform(
+                        CRUDBodyWithConsultantPayload,
+                        { metatype: WorkflowDto.ExecuteWorkflowDto, type: 'body' },
+                    );
+                    return await this.workflowExecutionV2Service.ExecuteAnyWorkflowWithWorkflowId({
+                        workflowId: routeParams.workflowId,
+                        workflowInputVariables: validatedBody.workflowInputVariables,
+                        workflowENVInputVariables: validatedBody?.workflowENVInputVariables,
+                        workflowExecutionConfig: validatedBody?.workflowExecutionConfig,
+                        workflowScheduleConfig: validatedBody?.workflowScheduleConfig,
+                        consultantOrgShortName: validatedBody.consultantOrgShortName,
+                        personId: validatedBody.personId,
+                        requestId: functionInput.requestId,
+                        requestMetadata: functionInput.requestMetadata,
+                        workflowExecutionType: 'scheduled',
+                    });
+                }
+
+                case `${CRUDOperationName.POST}-${CRUDWorkflowRoute.EXECUTE_ACTIVITY_AS_WORKFLOW_V2}`: {
+                    if (!routeParams?.activityId) {
+                        throw new BadRequestException({
+                            message: 'Validation failed: activityId is required',
+                            details: { routeParams },
+                        });
+                    }
+                    const validatedBody = await this.validationPipe.transform(
+                        CRUDBodyWithConsultantPayload,
+                        { metatype: WorkflowDto.ExecuteWorkflowDto, type: 'body' },
+                    );
+                    return await this.workflowExecutionV2Service.executeActivityAsWorkflow({
+                        activityId: routeParams.activityId,
+                        workflowInputVariables: validatedBody.workflowInputVariables,
+                        workflowENVInputVariables: validatedBody?.workflowENVInputVariables,
+                        workflowExecutionConfig: validatedBody?.workflowExecutionConfig,
+                        consultantOrgShortName: validatedBody.consultantOrgShortName,
+                        personId: validatedBody.personId,
+                        requestId: functionInput.requestId,
+                        requestMetadata: functionInput.requestMetadata,
+                    });
+                }
+
+
+                case `${CRUDOperationName.GET}-${CRUDWorkflowRoute.GET_WORKFLOW_EXECUTION_STATUS_V2}`: {
+                    if (!routeParams?.temporalWorkflowId) {
+                        throw new BadRequestException({
+                            message: 'Validation failed: temporalWorkflowId is required',
+                            details: { routeParams },
+                        });
+                    }
+                    return await this.workflowExecutionV2Service.getWorkflowExecutionStatus(routeParams.temporalWorkflowId);
+                }
+                case `${CRUDOperationName.GET}-${CRUDWorkflowRoute.GET_WORKFLOW_CODE_V2}`: {
+                    if (!queryParams?.workflowExternalName) {
+                        throw new BadRequestException({
+                            message: 'Validation failed: workflowExternalName is required',
+                            details: { queryParams },
+                        });
+                    }
+                    return await this.workflowExecutionV2Service.loadWorkflowCode(queryParams.workflowExternalName);
                 }
 
 

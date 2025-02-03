@@ -48,10 +48,8 @@ export class ActivityTypeScriptV1Service {
         // Validate name is myActivity and log other function names
         await this.validateMyActivityCompliance(activity);
 
-        // const activityENVInputVariables = this.tsValidationOb1Service.extractEnvironmentVariables(activityCode, 'activity');
-        // if (activityENVInputVariables || activityENVInputSchema) {
-        //     await this.tsValidationOb1Service.validateInputKeysExistInSchema(activityENVInputSchema, activityENVInputVariables, 'activityENVInputSchema');
-        // }
+        // Compile TypeScript for final validation
+        await this.tsValidationOb1Service.compileTypeScriptCheckForWorkflowExecution(null, activityCode);
 
         this.logger.debug('Activity validation completed successfully.');
     }

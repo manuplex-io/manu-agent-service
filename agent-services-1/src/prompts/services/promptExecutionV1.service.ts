@@ -4,14 +4,15 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { OB1AgentPrompts } from '../entities/ob1-agent-prompts.entity';
 import { OB1AgentPromptExecutionLog } from '../entities/ob1-agent-promptExecutionLog.entity';
+import { PromptExecutionValidationV1Service } from './validation/promptExecutionValidationV1.service';
+import { PromptWorkflowExecutionV1Service } from './execution/promptWorkflowExecutionV1.service';
+import { PromptToolExecutionV1Service } from './execution/promptToolExecutionV1.service';
+import { PromptActivityExecutionV1Service } from './execution/promptActivityExecutionV1.service';
+import { PromptLogV1Service } from './log/promptLogV1.service';
 import { LLMV2Service } from '../../llms/services/llmV2.service';
-import { ToolsExecutionV1Service } from '../../tools/services/toolsExecutionV1.service';
 import { OB1LLM } from '../../llms/interfaces/llmV2.interfaces';
 import { OB1Prompt } from '../interfaces/prompt.interface';
 import { OB1Tool } from 'src/tools/interfaces/tools.interface';
-import { v4 as uuid } from 'uuid';
-import { OB1AgentTools } from 'src/tools/entities/ob1-agent-tools.entity';
-import { trace } from 'console';
 
 
 @Injectable()
@@ -21,9 +22,12 @@ export class PromptExecutionV1Service {
     constructor(
         @InjectRepository(OB1AgentPrompts) private promptsRepo: Repository<OB1AgentPrompts>,
         @InjectRepository(OB1AgentPromptExecutionLog) private executionLogRepo: Repository<OB1AgentPromptExecutionLog>,
-        @InjectRepository(OB1AgentTools) private toolsRepo: Repository<OB1AgentTools>,
         private readonly llmV2Service: LLMV2Service,
-        private readonly toolExecutionV1Service: ToolsExecutionV1Service,
+        private readonly promptExecutionValidationV1Service: PromptExecutionValidationV1Service,
+        private readonly promptWorkflowExecutionV1Service: PromptWorkflowExecutionV1Service,
+        private readonly promptToolExecutionV1Service: PromptToolExecutionV1Service,
+        private readonly promptActivityExecutionV1Service: PromptActivityExecutionV1Service,
+        private readonly promptLogV1Service: PromptLogV1Service
     ) { }
 
 
@@ -76,11 +80,6 @@ export class PromptExecutionV1Service {
         }
     }
 
-    private async logExecution(logData: Partial<OB1AgentPromptExecutionLog>): Promise<void> {
-        const log = this.executionLogRepo.create(logData);
-        await this.executionLogRepo.save(log);
-    }
-
     private async updatePromptStats(promptId: string, executionTime: number): Promise<void> {
         const prompt = await this.promptsRepo.findOne({ where: { promptId } });
         if (!prompt) {
@@ -96,354 +95,6 @@ export class PromptExecutionV1Service {
             promptAvgResponseTime: newAvgTime
         });
     }
-
-    async getExecutionLogs(
-        promptId: string,
-        filters: {
-            startDate?: Date;
-            endDate?: Date;
-            successful?: boolean;
-            limit?: number;
-            offset?: number;
-        } = {}
-    ): Promise<{ logs: OB1AgentPromptExecutionLog[]; total: number }> {
-        const query = this.executionLogRepo.createQueryBuilder('log')
-            .where('log.promptId = :promptId', { promptId });
-
-        if (filters.startDate) {
-            query.andWhere('log.executedAt >= :startDate', { startDate: filters.startDate });
-        }
-
-        if (filters.endDate) {
-            query.andWhere('log.executedAt <= :endDate', { endDate: filters.endDate });
-        }
-
-        if (filters.successful !== undefined) {
-            query.andWhere('log.successful = :successful', { successful: filters.successful });
-        }
-
-        const total = await query.getCount();
-
-        query.orderBy('log.executedAt', 'DESC')
-            .limit(filters.limit || 10)
-            .offset(filters.offset || 0);
-
-        const logs = await query.getMany();
-
-        return { logs, total };
-    }
-
-    private async sendToolLogToPortkey(logData: {
-        request: {
-            url?: string | 'url_unavailable'; // pseudo URL to identify the tool
-            method?: string;  // defaults to 'POST'
-            headers?: Record<string, string> | {};
-            body: any;
-        };
-        response: {
-            status?: number; //defaults to 200
-            headers?: Record<string, string> | {};
-            body: any;
-            response_time: number;  //response latency
-        };
-        metadata: {
-            traceId: string;
-            spanId: string;
-            spanName: string;
-            parentSpanId?: string;
-            additionalProperties?: string;
-        };
-    }): Promise<void> {
-        //retrieve portkey from ENV (PORTKEY_API_KEY)
-        const portkeyApiKey = process.env.PORTKEY_API_KEY;; // Replace with a secure fetch from config/env
-        const url = 'https://api.portkey.ai/v1/logs';
-
-        try {
-            const res = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'x-portkey-api-key': portkeyApiKey,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(logData),
-            });
-
-            const jsonResponse = await res.json();
-            this.logger.log('Tool log sent successfully to Portkey:', jsonResponse);
-        } catch (err) {
-            this.logger.error('Failed to send tool log to Portkey:', err);
-        }
-    }
-
-
-    private async fetchAndValidateTools(toolIds: string[]): Promise<OB1LLM.Tool[]> {
-        // Fetch tool information
-        const toolsInfo = await this.toolsRepo.find({
-            where: toolIds.map(toolId => ({ toolId })),
-            select: [
-                'toolId',
-                'toolExternalName',
-                'toolDescription',
-                'toolInputSchema',
-                'toolOutputSchema',
-                'toolStatus',
-                'toolUsageQuota'
-            ]
-        });
-
-        // Validate that all requested tools were found
-        if (toolsInfo.length !== toolIds.length) {
-            const foundToolIds = toolsInfo.map(tool => tool.toolId);
-            const missingTools = toolIds.filter(id => !foundToolIds.includes(id));
-            throw new NotFoundException(`Tools not found: ${missingTools.join(', ')}`);
-        }
-
-        // Validate tool status
-        const unavailableTools = toolsInfo.filter(tool => tool.toolStatus !== OB1Tool.ToolStatus.ACTIVE && tool.toolStatus !== OB1Tool.ToolStatus.DEPLOYED);
-        if (unavailableTools.length > 0) {
-            throw new BadRequestException(
-                `Following tools are not available: ${unavailableTools.map(t => t.toolExternalName).join(', ')}`
-            );
-        }
-
-        // Convert to LLM Tool format
-        return toolsInfo.map(tool => ({
-            toolId: tool.toolId,
-            toolExternalName: tool.toolExternalName,
-            toolDescription: tool.toolDescription,
-            toolInputSchema: tool.toolInputSchema,
-            toolOutputSchema: tool.toolOutputSchema
-        }));
-    }
-
-    private async executeToolCall(Request: {
-        toolCall: OB1LLM.ChatCompletionMessageToolCall,
-        toolENVInputVariables?: Record<string, any>;
-        toolInfo: OB1AgentTools,
-        tracing: OB1LLM.promptTracing,
-        timeout: number,
-        requestMetadata: { [key: string]: any }
-    }
-    ): Promise<OB1Tool.ToolResponse> {
-        const toolRequest: OB1Tool.ToolRequest = {
-            toolId: Request.toolInfo.toolId,
-            toolInputVariables: JSON.parse(Request.toolCall.function.arguments), // Convert to an object 
-            toolENVInputVariables: Request?.toolENVInputVariables,
-            requestingServiceId: Request.requestMetadata?.sourceService || 'missing-SourceService'
-        };
-
-        this.logger.log(`Executing tool: ${Request.toolInfo.toolExternalName}`);
-
-        try {
-            const result: OB1Tool.ToolResponse = await Promise.race([
-                this.toolExecutionV1Service.executeAnyTool(toolRequest),
-                new Promise<OB1Tool.ToolResponse>((_, reject) =>
-                    setTimeout(() => reject(new Error('Tool execution timeout')), Request.timeout)
-                )
-            ]);
-            this.logger.log('Tool execution successful, result:', result);
-            return result;
-        } catch (error) {
-            this.logger.error(`Tool execution failed: ${error.message}`, error.stack);
-            return {
-                toolSuccess: false,
-                toolResult: { error: error.message },
-                toolExecutionTime: 0
-            };
-        }
-    }
-
-    private async executeParallelToolCalls(Request: {
-        toolCalls: OB1LLM.ChatCompletionMessageToolCall[],
-        toolENVInputVariables?: Record<string, any>;
-        tracing: OB1LLM.promptTracing,
-        timeout: number,
-        requestMetadata: { [key: string]: any }
-    }): Promise<{
-        newToolResults: Record<string, any>,
-        toolCallLogs: OB1Tool.ToolCallLog[]
-    }> {
-        const toolCallLogs: OB1Tool.ToolCallLog[] = [];
-
-        //this.logger.log(`3. Inside executeParallelToolCalls (straight): ${JSON.stringify(Request)}`);
-        //this.logger.log(`3A. Inside executeParallelToolCalls:\n${JSON.stringify(Request, null, 2)}`);
-        // First fetch all tool information
-        const startToolsTime = Date.now();
-        const toolsTracing = {
-            traceId: Request.tracing.traceId,
-            parentSpanId: Request.tracing.spanId,
-            spanId: uuid(),
-            spanName: `Tool Calls`,
-            //additionalProperties: 'Tool execution logs'
-        };
-
-        Request.tracing.spanId = toolsTracing.spanId; // Update the spanId for the next level of tracing
-
-        const toolsRequestMessages = {
-            messages: [
-                {
-                    role: 'tool',
-                    content: JSON.stringify(Request.toolCalls),
-                    //tool_calls: Request.toolCalls.map(tc => tc.id)
-                }
-            ]
-        };
-
-
-
-        const toolExternalNames = [...new Set(Request.toolCalls.map(tc => tc.function.name))];
-        //this.logger.log(`3B. Tool External Names: ${JSON.stringify(toolExternalNames)}`);
-        const toolsInfoCollection = await this.toolsRepo.find({
-            where: toolExternalNames.map(toolExternalName => ({ toolExternalName })),
-            select: [
-                'toolId',
-                'toolExternalName',
-            ]
-        });
-
-        //this.logger.log(`3C. Tools Info Collection: ${JSON.stringify(toolsInfoCollection, null, 2)}`);
-
-        const eachToolresultsArray = await Promise.all(
-            Request.toolCalls.map(async (toolCall) => {
-                const toolInfo = toolsInfoCollection.find(t => t.toolExternalName === toolCall.function.name);
-                if (!toolInfo) {
-                    throw new NotFoundException(`Tool not found: ${toolCall.function.name}`);
-                }
-
-
-
-                const toolTracing = {
-                    traceId: Request.tracing.traceId,
-                    parentSpanId: Request.tracing.spanId,
-                    spanId: uuid(),
-                    spanName: `tool_execution_${toolInfo.toolExternalName}`,
-                    additionalProperties: 'Tool execution logs'
-                };
-
-
-                const toolRequest = {
-                    toolCall,
-                    toolENVInputVariables: Request?.toolENVInputVariables,
-                    toolInfo,
-                    tracing: toolTracing,
-                    timeout: Request.timeout,
-                    requestMetadata: Request.requestMetadata
-                };
-
-                // declare a new toolRequestMessages array with role = tool, contant = toolRequest, tool_call_id = toolCall.id
-                const toolRequestMessages = [
-                    {
-                        role: 'tool',
-                        content: JSON.stringify(toolRequest),
-                        tool_call_id: toolCall.id
-                    }
-                ];
-
-                this.logger.log(`3D.Each toot Request: ${JSON.stringify(toolRequest, null, 2)}`);
-
-                const startToolTime = Date.now();
-
-                const result = await this.executeToolCall(toolRequest);
-
-                // Add to toolCallLogs
-                toolCallLogs.push({
-                    toolName: toolInfo.toolExternalName,
-                    toolInputArguments: JSON.parse(toolCall.function.arguments),
-                    toolOutput: result.toolResult,
-                    toolExecutionTime: result.toolExecutionTime,
-                });
-
-                const toolResponse = {
-                    content: {
-                        name: toolInfo.toolExternalName,
-                        output: result.toolResult,
-                        successful: result.toolSuccess,
-                        error: result.toolResult?.error
-                    },
-                    tool_call_id: toolCall.id,
-                    //arguments: toolCall.function.arguments,
-                    //executionTime: result.toolExecutionTime,
-
-                };
-                //this.logger.log(`4. Every Tool response: ${JSON.stringify(toolResponse)}`);
-                //this.logger.log(`4. Every Tool response:\n${JSON.stringify(toolResponse, null, 2)}`);
-
-                // Log tool execution
-                const responseTime = result.toolExecutionTime || (Date.now() - startToolTime);
-                // Construct log data
-                const logData = {
-                    request: {
-                        body: {
-                            messages: toolRequestMessages
-                        }
-                    },
-                    response: {   // @Need to Fix this, it does not pretty format like the master Tool call Log in Portkey
-                        status: result.toolSuccess ? 200 : 500,
-                        body: {
-                            choices: [
-                                {
-                                    message: {
-                                        role: 'tool',
-                                        content: JSON.stringify(toolResponse),
-                                        tool_calls: toolCall.id
-                                    }
-                                }]
-                        },
-                        response_time: responseTime
-                    },
-                    metadata: toolTracing,
-                };
-
-                // Send the tool log to Portkey
-                await this.sendToolLogToPortkey(logData);
-
-                return {
-                    ...toolResponse
-                };
-            })
-        );
-
-        const toolsResponseMessages = {
-            choices: [
-                {
-                    message: {
-                        role: 'tool',
-                        content: JSON.stringify(toolCallLogs),
-                        tool_calls: toolCallLogs.map(tc => tc.toolName)
-                    }
-                }
-            ]
-        };
-
-        // Log tool execution
-        const toolsResponseTime = (Date.now() - startToolsTime);
-
-        const ToolslogData = {
-            request: {
-                body: toolsRequestMessages
-            },
-            response: {
-                status: 200,
-                body: toolsResponseMessages,
-                response_time: toolsResponseTime
-            },
-            metadata: toolsTracing,
-        };
-
-        // Send the tool log to Portkey
-        await this.sendToolLogToPortkey(ToolslogData);
-
-        // const newToolResults = eachToolresults.reduce((acc, eachToolresults) => {
-        //     acc[eachToolresults.content.name] = eachToolresults;
-        //     return acc;
-        // }, {});
-
-        return {
-            newToolResults: eachToolresultsArray,
-            toolCallLogs
-        };
-    }
-
 
     async executePromptBase(
         promptRequest: OB1Prompt.ExecutePromptGlobalBase,
@@ -484,7 +135,6 @@ export class PromptExecutionV1Service {
                     ...promptRequest.llmConfig,
                 },
                 ...availableTools && { inputTools: availableTools, },
-                messageHistory : promptRequest.messageHistory
                 //inputTools: availableTools,
             };
             this.logger.log(`1. LLM Request (check Tools):\n${JSON.stringify(llmRequest, null, 2)}`);
@@ -504,7 +154,6 @@ export class PromptExecutionV1Service {
                 // Make LLM call
                 llmCallCount++;
                 const response = await this.llmV2Service.generateResponseWithStructuredOutputWithTools(llmRequest);
-
                 // If no tool calls, return response
                 if (!response.tool_calls?.length) {
                     this.logger.log(`No tool calls found in response: ${JSON.stringify(response)}, hence returning response`);
@@ -518,25 +167,105 @@ export class PromptExecutionV1Service {
                         partialResponse: response,
                     });
                 }
+
+                const toolToolCalls = response.tool_calls?.filter(tc => 
+                    promptRequest.availableToolSet?.has(tc.function.name)
+                ) || [];
+
+                const activityToolCalls = response.tool_calls?.filter(tc => 
+                    promptRequest.availableActivitySet?.has(tc.function.name)
+                ) || [];
+                
+                const workflowToolCalls = response.tool_calls?.filter(tc => 
+                    promptRequest.availableWorkflowSet?.has(tc.function.name)
+                ) || [];
                 //this.logger.log(`2. Tool calls found in response: ${JSON.stringify(response.tool_calls)}, making calls`);
                 //this.logger.log(`2. Tool calls found in response:\n${JSON.stringify(response.tool_calls, null, 2)}`);
                 // Execute tool calls
                 toolCallCount += response.tool_calls.length;
-                const { newToolResults, toolCallLogs } = await this.executeParallelToolCalls({
-                    toolCalls: response.tool_calls,
-                    tracing: {
-                        traceId: llmRequest.tracing.traceId,
-                        spanId: llmRequest.tracing.spanId,
-                    },
-                    timeout: promptRequest.promptConfig?.toolTimeout || OB1Prompt.DefaultPromptConfig.DEFAULT_MAX_TOOL_EXECUTION_TIME,
-                    requestMetadata: promptRequest.requestMetadata,
-                    toolENVInputVariables: promptRequest.toolENVInputVariables,
-                }
-                );
-                toolResults = { ...toolResults, ...newToolResults };
+                let messageHistory = [
+                    ...(response.messageHistory || [])
+                ];
 
-                // Add new tool call logs to the main array
-                allToolCallLogs.push(...toolCallLogs);
+                if (toolToolCalls.length > 0) {
+                    const { newToolResults, toolCallLogs } = await this.promptToolExecutionV1Service.executeParallelToolCalls({
+                        toolCalls: toolToolCalls,
+                        tracing: {
+                            traceId: llmRequest.tracing.traceId,
+                            spanId: llmRequest.tracing.spanId,
+                        },
+                        timeout: promptRequest.promptConfig?.toolTimeout || OB1Prompt.DefaultPromptConfig.DEFAULT_MAX_TOOL_EXECUTION_TIME,
+                        requestMetadata: promptRequest.requestMetadata,
+                        toolENVInputVariables: promptRequest.toolENVInputVariables,
+                    });
+                    toolResults = { ...toolResults, ...newToolResults };
+                    // toolResultsForLLMMessage = Array.isArray(newToolResults) ? newToolResults : 
+                    //                          (newToolResults ? [newToolResults] : []);
+                    allToolCallLogs.push(...toolCallLogs);
+                    messageHistory = [
+                        ...messageHistory,
+                        ...newToolResults.map(toolResult => ({
+                            role: 'tool' as const,
+                            content: JSON.stringify(toolResult || {}),
+                            tool_call_id: toolResult?.tool_call_id || 'unknown'
+                        }))
+                    ];
+                }
+                if (activityToolCalls.length > 0) {
+                    const { newToolResults, toolCallLogs } = await this.promptActivityExecutionV1Service.executeParallelActivityCalls({
+                        toolCalls: activityToolCalls,
+                        tracing: {
+                            traceId: llmRequest.tracing.traceId,
+                            spanId: llmRequest.tracing.spanId,
+                        },
+                        timeout: promptRequest.promptConfig?.toolTimeout || OB1Prompt.DefaultPromptConfig.DEFAULT_MAX_TOOL_EXECUTION_TIME,
+                        requestMetadata: promptRequest.requestMetadata,
+                        toolENVInputVariables: promptRequest.activityENVInputVariables,
+                        consultantOrgShortName: promptRequest?.consultantOrgShortName,
+                        personId: promptRequest?.personId,
+                    });
+                    toolResults = { ...toolResults, ...newToolResults };
+                    // workflowResultsForLLMMessage = Array.isArray(newToolResults) ? newToolResults :
+                    //                              (newToolResults ? [newToolResults] : []);
+                    allToolCallLogs.push(...toolCallLogs);
+                    messageHistory = [
+                        ...messageHistory,
+                        ...newToolResults.map(toolResult => ({
+                            role: 'tool' as const,
+                            content: JSON.stringify(toolResult || {}),
+                            tool_call_id: toolResult?.tool_call_id || 'unknown'
+                        }))
+                    ];
+                }
+
+                if (workflowToolCalls.length > 0) {
+                    const { newToolResults, toolCallLogs } = await this.promptWorkflowExecutionV1Service.executeParallelWorkflowCalls({
+                        toolCalls: workflowToolCalls,
+                        tracing: {
+                            traceId: llmRequest.tracing.traceId,
+                            spanId: llmRequest.tracing.spanId,
+                        },
+                        timeout: promptRequest.promptConfig?.toolTimeout || OB1Prompt.DefaultPromptConfig.DEFAULT_MAX_TOOL_EXECUTION_TIME,
+                        requestMetadata: promptRequest.requestMetadata,
+                        toolENVInputVariables: promptRequest.workflowENVInputVariables,
+                        consultantOrgShortName: promptRequest?.consultantOrgShortName,
+                        personId: promptRequest?.personId,
+                    });
+                    toolResults = { ...toolResults, ...newToolResults };
+                    // workflowResultsForLLMMessage = Array.isArray(newToolResults) ? newToolResults :
+                    //                              (newToolResults ? [newToolResults] : []);
+                    allToolCallLogs.push(...toolCallLogs);
+                    messageHistory = [
+                        ...messageHistory,
+                        ...newToolResults.map(toolResult => ({
+                            role: 'tool' as const,
+                            content: JSON.stringify(toolResult || {}),
+                            tool_call_id: toolResult?.tool_call_id || 'unknown'
+                        }))
+                    ];
+                }
+
+                llmRequest.messageHistory = messageHistory;
 
                 // Remove systemPrompt and userPrompt from llmRequest since it already exists in messageHistory
                 delete llmRequest.systemPrompt;
@@ -545,15 +274,6 @@ export class PromptExecutionV1Service {
                 llmRequest.tracing.spanId = `llm_call_${llmCallCount}`;
                 llmRequest.tracing.spanName = `followup_llm_call_${llmCallCount}_with_toolResults`;
 
-                // add tool results to message history
-                llmRequest.messageHistory = [
-                    ...response.messageHistory,
-                    ...newToolResults.map(toolResult => ({
-                        role: 'tool',
-                        content: JSON.stringify(toolResult),
-                        tool_call_id: toolResult.tool_call_id
-                    }))
-                ];
                 // If reached max LLM calls, throw error
                 if (llmCallCount >= (promptRequest.promptConfig?.maxLLMCalls || OB1Prompt.DefaultPromptConfig.DEFAULT_MAX_LLM_CALLS)) {
                     throw new BadRequestException({
@@ -566,7 +286,7 @@ export class PromptExecutionV1Service {
 
             // Log execution
             const executionTime = Date.now() - startTime;
-            await this.logExecution({
+            await this.promptLogV1Service.logExecution({
                 promptId: promptRequest.promptId,
                 systemVariables: promptRequest.systemPromptVariables,
                 userVariables: promptRequest.userPromptVariables,
@@ -583,11 +303,37 @@ export class PromptExecutionV1Service {
             });
 
             await this.updatePromptStats(promptRequest.promptId, executionTime);
+
+            // Add validation step before returning
+            if (prompt.validationRequired) {
+                const validationScore = await this.promptExecutionValidationV1Service.validateResponse({
+                    originalPrompts: {
+                        systemPrompt: processedSystemPrompt,
+                        userPrompt: processedUserPrompt
+                    },
+                    toolCallHistory: allToolCallLogs,
+                    finalResponse: finalResponse.content,
+                    tracing: llmRequest.tracing,
+                    requestMetadata: promptRequest.requestMetadata
+                });
+                // if (!validationScore.passed) {
+                //     throw new BadRequestException({
+                //         message: 'Response validation failed',
+                //         validationScore,
+                //         originalResponse: finalResponse
+                //     });
+                // }
+
+                finalResponse.validationPassed = validationScore.passed;
+                // Attach validation results to response metadata
+                finalResponse.validationResults = JSON.stringify(validationScore);
+            }
+
             return finalResponse;
 
         } catch (error) {
             // Handle and log error
-            await this.logExecution({
+            await this.promptLogV1Service.logExecution({
                 promptId: promptRequest.promptId,
                 systemVariables: promptRequest.systemPromptVariables || { 'undefined': 'undefined' },
                 userVariables: promptRequest.userPromptVariables || { 'undefined': 'undefined' },
@@ -611,93 +357,425 @@ export class PromptExecutionV1Service {
         promptRequest: OB1Prompt.ExecutePromptWithoutUserPrompt,
     ): Promise<OB1LLM.LLMResponse> {
         // Get the prompt
-        const prompt = await this.promptsRepo.findOne({ where: { promptId: promptRequest.promptId } });
-        if (!prompt) {
-            throw new NotFoundException(`Prompt with ID ${promptRequest.promptId} not found`);
+        try {
+            const prompt = await this.promptsRepo.findOne({ where: { promptId: promptRequest.promptId } });
+            if (!prompt) {
+                throw new NotFoundException(`Prompt with ID ${promptRequest.promptId} not found`);
+            }
+    
+            // Initialize as empty array
+            let availableTools: OB1LLM.Tool[] = [];
+            const validationRequired = prompt.validationRequired || false;
+            const validationGate = prompt.validationGate || false;
+            let validationGateRetry = 0;
+            // Create sets to track external names
+            const availableToolSet = new Set<string>();
+            const availableActivitySet = new Set<string>();
+            const availableWorkflowSet = new Set<string>();
+            
+            // Add tools if available
+            if (prompt.promptAvailableTools && Object.keys(prompt.promptAvailableTools).length > 0) {
+                const tools = await this.promptToolExecutionV1Service.fetchAndValidateTools(prompt.promptAvailableTools);
+                availableTools = [...availableTools, ...tools];
+                // Add tool external names to set
+                tools.forEach(tool => availableToolSet.add(tool.toolExternalName));
+            }
+    
+            // Add activities if available
+            if (prompt.promptAvailableActivities && Object.keys(prompt.promptAvailableActivities).length > 0) {
+                const activities = await this.promptActivityExecutionV1Service.fetchAndValidateActivities(prompt.promptAvailableActivities);
+                availableTools = [...availableTools, ...activities];
+                // Add activity external names to set
+                activities.forEach(activity => availableActivitySet.add(activity.toolExternalName));
+            }
+    
+            // Add workflows if available
+            if (prompt.promptAvailableWorkflows && Object.keys(prompt.promptAvailableWorkflows).length > 0) {
+                const workflows = await this.promptWorkflowExecutionV1Service.fetchAndValidateWorkflows(prompt.promptAvailableWorkflows);
+                availableTools = [...availableTools, ...workflows];
+                // Add workflow external names to set
+                workflows.forEach(workflow => availableWorkflowSet.add(workflow.toolExternalName));
+            }
+            // Validate prompt status and variables
+            if (prompt.promptStatus !== OB1Prompt.PromptStatus.ACTIVE) {
+                throw new BadRequestException(`Prompt is not active: ${promptRequest.promptId}`);
+            }
+            this.validateVariables(promptRequest.systemPromptVariables, prompt.systemPromptVariables, 'system');
+            this.validateVariables(promptRequest.userPromptVariables, prompt.userPromptVariables, 'user');
+    
+            // Process prompts
+            const processedSystemPrompt = this.interpolateVariables(
+                prompt.systemPrompt,
+                promptRequest.systemPromptVariables
+            );
+            const processedUserPrompt = this.interpolateVariables(
+                prompt.userPrompt,
+                promptRequest.userPromptVariables
+            );
+    
+            // Preparing request for Base
+            const promptBaseRequest: OB1Prompt.ExecutePromptGlobalBase = {
+                ...promptRequest,
+                prompt: prompt,
+                availableTools: availableTools,
+                systemPrompt: processedSystemPrompt,
+                userPrompt: processedUserPrompt,
+                availableToolSet,
+                availableActivitySet,
+                availableWorkflowSet,
+            };
+    
+            // If validation gate is not required, execute once and return
+            if (!validationGate) {
+                return await this.executePromptBase(promptBaseRequest);
+            }
+    
+            // If validation gate is required, try multiple times
+            let lastResponse = null;
+            while (validationGateRetry < OB1Prompt.DefaultPromptConfig.DEFAULT_VALIDATION_GATE_RETRY) {
+                this.logger.log(`Validation gate retry: ${validationGateRetry}`);
+                lastResponse = await this.executePromptBase(promptBaseRequest);
+                
+                // Check if validation results exist and passed
+                if (lastResponse?.validationPassed) {
+                    return lastResponse;
+                }
+                validationGateRetry++;
+            }
+    
+            // If we get here, validation failed after all retries
+            throw new BadRequestException({
+                message: 'Response validation failed after all retry attempts',
+                validationScore: lastResponse?.validationResults,
+                originalResponse: lastResponse
+            });
+        }catch(error){
+            throw new BadRequestException({
+                message: 'Prompt execution with user prompt failed',
+                errorSuperDetails: { ...error },
+            });
         }
-
-        let availableTools = null;
-        if (prompt.promptAvailableTools && Object.keys(prompt.promptAvailableTools).length > 0) {
-            // Validate and fetch tools
-            availableTools = await this.fetchAndValidateTools(prompt.promptAvailableTools);
-        }
-        // Validate prompt status and variables
-        if (prompt.promptStatus !== OB1Prompt.PromptStatus.ACTIVE) {
-            throw new BadRequestException(`Prompt is not active: ${promptRequest.promptId}`);
-        }
-        this.validateVariables(promptRequest.systemPromptVariables, prompt.systemPromptVariables, 'system');
-        this.validateVariables(promptRequest.userPromptVariables, prompt.userPromptVariables, 'user');
-
-        // Process prompts
-        const processedSystemPrompt = this.interpolateVariables(
-            prompt.systemPrompt,
-            promptRequest.systemPromptVariables
-        );
-        const processedUserPrompt = this.interpolateVariables(
-            prompt.userPrompt,
-            promptRequest.userPromptVariables
-        );
-
-        // Preparing request for Base
-        const promptBaseRequest: OB1Prompt.ExecutePromptGlobalBase = {
-            ...promptRequest,
-            prompt: prompt,
-            availableTools: availableTools,
-            systemPrompt: processedSystemPrompt,
-            userPrompt: processedUserPrompt,
-            messageHistory:promptRequest.messageHistory,
-        };
-
-
-
-        const Response = await this.executePromptBase(promptBaseRequest);
-        return Response;
-
     }
 
     async executePromptWithUserPromptWithTools(
         promptRequest: OB1Prompt.ExecutePromptWithUserPrompt,
     ): Promise<OB1LLM.LLMResponse> {
         // Get the prompt
-        const prompt = await this.promptsRepo.findOne({ where: { promptId: promptRequest.promptId } });
-        if (!prompt) {
-            throw new NotFoundException(`Prompt with ID ${promptRequest.promptId} not found`);
+        try{
+            const prompt = await this.promptsRepo.findOne({ where: { promptId: promptRequest.promptId } });
+            if (!prompt) {
+                throw new NotFoundException(`Prompt with ID ${promptRequest.promptId} not found`);
+            }
+            // Initialize as empty array
+            let availableTools: OB1LLM.Tool[] = [];
+            
+            const validationRequired = prompt.validationRequired || false;
+            const validationGate = prompt.validationGate || false;
+            let validationGateRetry = 0;
+            // Create sets to track external names
+            const availableToolSet = new Set<string>();
+            const availableActivitySet = new Set<string>();
+            const availableWorkflowSet = new Set<string>();
+            
+            // Add tools if available
+            if (prompt.promptAvailableTools && Object.keys(prompt.promptAvailableTools).length > 0) {
+                const tools = await this.promptToolExecutionV1Service.fetchAndValidateTools(prompt.promptAvailableTools);
+                availableTools = [...availableTools, ...tools];
+                // Add tool external names to set
+                tools.forEach(tool => availableToolSet.add(tool.toolExternalName));
+            }
+
+            // Add activities if available
+            if (prompt.promptAvailableActivities && Object.keys(prompt.promptAvailableActivities).length > 0) {
+                const activities = await this.promptActivityExecutionV1Service.fetchAndValidateActivities(prompt.promptAvailableActivities);
+                availableTools = [...availableTools, ...activities];
+                // Add activity external names to set
+                activities.forEach(activity => availableActivitySet.add(activity.toolExternalName));
+            }
+
+            // Add workflows if available
+            if (prompt.promptAvailableWorkflows && Object.keys(prompt.promptAvailableWorkflows).length > 0) {
+                const workflows = await this.promptWorkflowExecutionV1Service.fetchAndValidateWorkflows(prompt.promptAvailableWorkflows);
+                availableTools = [...availableTools, ...workflows];
+                // Add workflow external names to set
+                workflows.forEach(workflow => availableWorkflowSet.add(workflow.toolExternalName));
+            }
+
+            this.logger.log('Tool available: ' + JSON.stringify(availableTools));
+            // Validate prompt status and variables
+            if (prompt.promptStatus !== OB1Prompt.PromptStatus.ACTIVE) {
+                throw new BadRequestException(`Prompt is not active: ${promptRequest.promptId}`);
+            }
+            this.validateVariables(promptRequest.systemPromptVariables, prompt.systemPromptVariables, 'system');
+
+            // Process prompts
+            const processedSystemPrompt = this.interpolateVariables(
+                prompt.systemPrompt,
+                promptRequest.systemPromptVariables
+            );
+            const processedUserPrompt = promptRequest.userPrompt;
+
+            // Preparing request for Base
+            const promptBaseRequest: OB1Prompt.ExecutePromptGlobalBase = {
+                ...promptRequest,
+                prompt: prompt,
+                availableTools: availableTools,
+                systemPrompt: processedSystemPrompt,
+                userPrompt: processedUserPrompt,
+                availableToolSet,
+                availableActivitySet,
+                availableWorkflowSet,
+            };
+
+            if (!validationGate || !validationRequired) {
+                return await this.executePromptBase(promptBaseRequest);
+            }
+
+            let lastResponse = null;
+            while (validationGateRetry < OB1Prompt.DefaultPromptConfig.DEFAULT_VALIDATION_GATE_RETRY) {
+                this.logger.log(`Validation gate retry: ${validationGateRetry}`);
+                lastResponse = await this.executePromptBase(promptBaseRequest);
+                if (lastResponse?.validationPassed) {
+                    return lastResponse;
+                }
+                validationGateRetry++;
+            }
+
+            throw new BadRequestException({
+                message: 'Response validation failed after all retry attempts',
+                validationScore: lastResponse?.validationResults,
+                originalResponse: lastResponse
+            });
+        }catch(error){
+            throw new BadRequestException({
+                message: 'Prompt execution with user prompt failed',
+                errorSuperDetails: { ...error },
+            });
         }
-        let availableTools = null;
-        if (prompt.promptAvailableTools && Object.keys(prompt.promptAvailableTools).length > 0) {
-            // Validate and fetch tools
-            availableTools = await this.fetchAndValidateTools(prompt.promptAvailableTools);
-        }
-
-        this.logger.log('Tool available: ' + JSON.stringify(availableTools));
-        // Validate prompt status and variables
-        if (prompt.promptStatus !== OB1Prompt.PromptStatus.ACTIVE) {
-            throw new BadRequestException(`Prompt is not active: ${promptRequest.promptId}`);
-        }
-        this.validateVariables(promptRequest.systemPromptVariables, prompt.systemPromptVariables, 'system');
-
-        // Process prompts
-        const processedSystemPrompt = this.interpolateVariables(
-            prompt.systemPrompt,
-            promptRequest.systemPromptVariables
-        );
-        const processedUserPrompt = promptRequest.userPrompt;
-
-        // Preparing request for Base
-        const promptBaseRequest: OB1Prompt.ExecutePromptGlobalBase = {
-            ...promptRequest,
-            prompt: prompt,
-            availableTools: availableTools,
-            systemPrompt: processedSystemPrompt,
-            userPrompt: processedUserPrompt,
-        };
-
-        const Response = await this.executePromptBase(promptBaseRequest);
-        return Response;
-
     }
 
+    async executePromptWithUserPromptWithToolsAsync(
+        promptRequest: OB1Prompt.ExecutePromptWithUserPrompt,
+    ): Promise<OB1Prompt.ExecutePromptResponseAsync> {
+        // Create response object immediately
+        const responseAsync: OB1Prompt.ExecutePromptResponseAsync = {
+            requestId: promptRequest.requestId,
+            requestMetadata: promptRequest.requestMetadata,
+            requestorId: promptRequest.personId,
+        };
+
+        // Start processing in background without awaiting
+        Promise.resolve().then(async () => {
+            try {
+                // Get the prompt
+                const prompt = await this.promptsRepo.findOne({ where: { promptId: promptRequest.promptId } });
+                if (!prompt) {
+                    throw new NotFoundException(`Prompt with ID ${promptRequest.promptId} not found`);
+                }
+
+                // Initialize as empty array
+                let availableTools: OB1LLM.Tool[] = [];
+                const validationRequired = prompt.validationRequired || false;
+                const validationGate = prompt.validationGate || false;
+                let validationGateRetry = 0;
+                // Create sets to track external names
+                const availableToolSet = new Set<string>();
+                const availableActivitySet = new Set<string>();
+                const availableWorkflowSet = new Set<string>();
+                
+                // Add tools if available
+                if (prompt.promptAvailableTools && Object.keys(prompt.promptAvailableTools).length > 0) {
+                    const tools = await this.promptToolExecutionV1Service.fetchAndValidateTools(prompt.promptAvailableTools);
+                    availableTools = [...availableTools, ...tools];
+                    // Add tool external names to set
+                    tools.forEach(tool => availableToolSet.add(tool.toolExternalName));
+                }
+
+                // Add activities if available
+                if (prompt.promptAvailableActivities && Object.keys(prompt.promptAvailableActivities).length > 0) {
+                    const activities = await this.promptActivityExecutionV1Service.fetchAndValidateActivities(prompt.promptAvailableActivities);
+                    availableTools = [...availableTools, ...activities];
+                    // Add activity external names to set
+                    activities.forEach(activity => availableActivitySet.add(activity.toolExternalName));
+                }
+
+                // Add workflows if available
+                if (prompt.promptAvailableWorkflows && Object.keys(prompt.promptAvailableWorkflows).length > 0) {
+                    const workflows = await this.promptWorkflowExecutionV1Service.fetchAndValidateWorkflows(prompt.promptAvailableWorkflows);
+                    availableTools = [...availableTools, ...workflows];
+                    // Add workflow external names to set
+                    workflows.forEach(workflow => availableWorkflowSet.add(workflow.toolExternalName));
+                }
+
+                this.logger.log('Tool available: ' + JSON.stringify(availableTools));
+                // Validate prompt status and variables
+                if (prompt.promptStatus !== OB1Prompt.PromptStatus.ACTIVE) {
+                    throw new BadRequestException(`Prompt is not active: ${promptRequest.promptId}`);
+                }
+                this.validateVariables(promptRequest.systemPromptVariables, prompt.systemPromptVariables, 'system');
+
+                // Process prompts
+                const processedSystemPrompt = this.interpolateVariables(
+                    prompt.systemPrompt,
+                    promptRequest.systemPromptVariables
+                );
+                const processedUserPrompt = promptRequest.userPrompt;
+
+                // Preparing request for Base
+                const promptBaseRequest: OB1Prompt.ExecutePromptGlobalBase = {
+                    ...promptRequest,
+                    prompt: prompt,
+                    availableTools: availableTools,
+                    systemPrompt: processedSystemPrompt,
+                    userPrompt: processedUserPrompt,
+                    availableToolSet,
+                    availableActivitySet,
+                    availableWorkflowSet,
+                };
+
+                if (!validationGate || !validationRequired) {
+                    return await this.executePromptBase(promptBaseRequest);
+                }
+
+                let lastResponse = null;
+                while (validationGateRetry < OB1Prompt.DefaultPromptConfig.DEFAULT_VALIDATION_GATE_RETRY) {
+                    this.logger.log(`Validation gate retry: ${validationGateRetry}`);
+                    lastResponse = await this.executePromptBase(promptBaseRequest);
+                    if (lastResponse?.validationPassed) {
+                        return lastResponse;
+                    }
+                    validationGateRetry++;
+                }
+
+                throw new BadRequestException({
+                    message: 'Response validation failed after all retry attempts',
+                    validationScore: lastResponse?.validationResults,
+                    originalResponse: lastResponse
+                });
+            } catch (error) {
+                this.logger.error(`Error processing async prompt: ${error.message}`, error.stack);
+            }
+        }).catch(error => {
+            this.logger.error(`Critical error in async processing: ${error.message}`, error.stack);
+        });
+
+        // Return immediately with request ID
+        return responseAsync;
+    }
+    async executePromptWithoutUserPromptWithToolsAsync(
+        promptRequest: OB1Prompt.ExecutePromptWithoutUserPrompt,
+    ): Promise<OB1Prompt.ExecutePromptResponseAsync> {
+        // Get the prompt
+        const responseAsync: OB1Prompt.ExecutePromptResponseAsync = {
+            requestId: promptRequest.requestId,
+            requestMetadata: promptRequest.requestMetadata,
+            requestorId: promptRequest.personId,
+        };
+        Promise.resolve().then(async () => {
+
+        try {
+            const prompt = await this.promptsRepo.findOne({ where: { promptId: promptRequest.promptId } });
+            if (!prompt) {
+                throw new NotFoundException(`Prompt with ID ${promptRequest.promptId} not found`);
+            }
+    
+            // Initialize as empty array
+            let availableTools: OB1LLM.Tool[] = [];
+            const validationRequired = prompt.validationRequired || false;
+            const validationGate = prompt.validationGate || false;
+            let validationGateRetry = 0;
+            // Create sets to track external names
+            const availableToolSet = new Set<string>();
+            const availableActivitySet = new Set<string>();
+            const availableWorkflowSet = new Set<string>();
+            
+            // Add tools if available
+            if (prompt.promptAvailableTools && Object.keys(prompt.promptAvailableTools).length > 0) {
+                const tools = await this.promptToolExecutionV1Service.fetchAndValidateTools(prompt.promptAvailableTools);
+                availableTools = [...availableTools, ...tools];
+                // Add tool external names to set
+                tools.forEach(tool => availableToolSet.add(tool.toolExternalName));
+            }
+    
+            // Add activities if available
+            if (prompt.promptAvailableActivities && Object.keys(prompt.promptAvailableActivities).length > 0) {
+                const activities = await this.promptActivityExecutionV1Service.fetchAndValidateActivities(prompt.promptAvailableActivities);
+                availableTools = [...availableTools, ...activities];
+                // Add activity external names to set
+                activities.forEach(activity => availableActivitySet.add(activity.toolExternalName));
+            }
+    
+            // Add workflows if available
+            if (prompt.promptAvailableWorkflows && Object.keys(prompt.promptAvailableWorkflows).length > 0) {
+                const workflows = await this.promptWorkflowExecutionV1Service.fetchAndValidateWorkflows(prompt.promptAvailableWorkflows);
+                availableTools = [...availableTools, ...workflows];
+                // Add workflow external names to set
+                workflows.forEach(workflow => availableWorkflowSet.add(workflow.toolExternalName));
+            }
+            // Validate prompt status and variables
+            if (prompt.promptStatus !== OB1Prompt.PromptStatus.ACTIVE) {
+                throw new BadRequestException(`Prompt is not active: ${promptRequest.promptId}`);
+            }
+            this.validateVariables(promptRequest.systemPromptVariables, prompt.systemPromptVariables, 'system');
+            this.validateVariables(promptRequest.userPromptVariables, prompt.userPromptVariables, 'user');
+    
+            // Process prompts
+            const processedSystemPrompt = this.interpolateVariables(
+                prompt.systemPrompt,
+                promptRequest.systemPromptVariables
+            );
+            const processedUserPrompt = this.interpolateVariables(
+                prompt.userPrompt,
+                promptRequest.userPromptVariables
+            );
+    
+            // Preparing request for Base
+            const promptBaseRequest: OB1Prompt.ExecutePromptGlobalBase = {
+                ...promptRequest,
+                prompt: prompt,
+                availableTools: availableTools,
+                systemPrompt: processedSystemPrompt,
+                userPrompt: processedUserPrompt,
+                availableToolSet,
+                availableActivitySet,
+                availableWorkflowSet,
+            };
+    
+            // If validation gate is not required, execute once and return
+            if (!validationGate) {
+                return await this.executePromptBase(promptBaseRequest);
+            }
+    
+            // If validation gate is required, try multiple times
+            let lastResponse = null;
+            while (validationGateRetry < OB1Prompt.DefaultPromptConfig.DEFAULT_VALIDATION_GATE_RETRY) {
+                this.logger.log(`Validation gate retry: ${validationGateRetry}`);
+                lastResponse = await this.executePromptBase(promptBaseRequest);
+                
+                // Check if validation results exist and passed
+                if (lastResponse?.validationPassed) {
+                    return lastResponse;
+                }
+                validationGateRetry++;
+            }
+    
+            // If we get here, validation failed after all retries
+            throw new BadRequestException({
+                message: 'Response validation failed after all retry attempts',
+                validationScore: lastResponse?.validationResults,
+                originalResponse: lastResponse
+            });
+        }catch(error){
+            this.logger.error(`Error in execute prompt without user prompt with tools async: ${error.message}`, error.stack);
+        }
+    }).catch(error => {
+        this.logger.error(`Error in execute prompt without user prompt with tools async: ${error.message}`, error.stack);
+    });
+    return responseAsync;
+    }
 }
+
+
 
 //old code (delete later)
 

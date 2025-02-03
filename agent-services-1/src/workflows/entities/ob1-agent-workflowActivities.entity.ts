@@ -24,4 +24,10 @@ export class OB1AgentWorkflowActivities {
         onUpdate: 'CASCADE',
     })
     activity: OB1AgentActivities;
+
+    @ManyToOne(() => OB1AgentWorkflows, (subWorkflow) => subWorkflow.workflowActivities, {
+        onDelete: 'CASCADE', // Prevent deletion of an activity if it's linked to a workflow
+        onUpdate: 'CASCADE',
+    })
+    subWorkflow: OB1AgentWorkflows;
 }

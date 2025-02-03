@@ -73,6 +73,14 @@ export class LLMCRUDV1 {
                     );
                     return await this.llmV3Service.generateAnyLLMResponse(validatedBody);
                 }
+                case `${CRUDOperationName.POST}-${CRUDLLMRoute.GENERATE_LLM_RESPONSE_WITH_RAG}`: {
+
+                    const validatedBody = await this.validationPipe.transform(
+                        CRUDBodyWithConsultantPayload,
+                        { metatype: LLMV3Dto.OB1GenericLLMRequestDto, type: 'body' },
+                    );
+                    return await this.llmV3Service.generateAnyLLMResponseWithRAG(validatedBody);
+                }
                 default:
                     throw new BadRequestException({
                         message: `Invalid llm operation: ${operation} - ${route}`,

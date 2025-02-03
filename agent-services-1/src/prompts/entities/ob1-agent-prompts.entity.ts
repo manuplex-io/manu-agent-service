@@ -232,6 +232,20 @@ export class OB1AgentPrompts {
 
     @Column({
         type: 'text',
+        array: true,
+        default: '{}'
+    })
+    promptAvailableWorkflows: string[];
+
+    @Column({
+        type: 'text',
+        array: true,
+        default: '{}'
+    })
+    promptAvailableActivities: string[];
+
+    @Column({
+        type: 'text',
         nullable: true,
         default: 'auto',
         comment: 'none or auto or required or the actual prompt as per defination'
@@ -272,4 +286,18 @@ export class OB1AgentPrompts {
         comment: 'Average response time in milliseconds'
     })
     promptAvgResponseTime: number;
+
+    @Column({
+        type: 'boolean',
+        default: false,
+        comment: 'Whether the prompt is validated'
+    })
+    validationRequired: boolean;
+
+    @Column({
+        type: 'boolean',
+        default: false,
+        comment: 'Whether the prompt is validated'
+    })
+    validationGate: boolean;
 }

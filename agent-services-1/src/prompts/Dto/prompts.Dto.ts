@@ -1,7 +1,7 @@
 // /scr/prompt/Dto/prompt.Dto.ts
 
 import { IsNotEmpty, IsString, IsOptional, IsUUID, IsObject, IsArray, IsEnum, ValidateNested, IsBoolean, IsNumber, } from 'class-validator';
-import { Expose, Type } from 'class-transformer';
+import { Type } from 'class-transformer';
 import { OB1Prompt } from '../interfaces/prompt.interface';
 import { OB1LLM } from '../../llms/interfaces/llmV2.interfaces';
 import { DynamicObjectValidator } from './DynamicObject.validator';
@@ -77,6 +77,14 @@ export namespace OB1PromptDto {
         promptAvailableTools?: string[];  //only the toolId's in Array
 
         @IsOptional()
+        @IsArray()
+        promptAvailableActivities?: string[];  //only the activityId's in Array
+
+        @IsOptional()
+        @IsArray()
+        promptAvailableWorkflows?: string[];  //only the workflowId's in Array
+
+        @IsOptional()
         @IsObject()
         @DynamicObjectValidator({
             message: 'systemPromptVariables must be an object with valid VariableDefinitionDto values.',
@@ -118,6 +126,11 @@ export namespace OB1PromptDto {
         @IsString()
         consultantOrgShortName: string;
 
+        @IsBoolean()
+        validationRequired: boolean;
+
+        @IsBoolean()
+        validationGate: boolean;
     }
 
 
@@ -153,6 +166,14 @@ export namespace OB1PromptDto {
         promptAvailableTools?: string[];  //only the toolId's in Array
 
         @IsOptional()
+        @IsArray()
+        promptAvailableActivities?: string[];  //only the activityId's in Array
+
+        @IsOptional()
+        @IsArray()
+        promptAvailableWorkflows?: string[];  //only the workflowId's in Array
+
+        @IsOptional()
         @IsObject()
         @DynamicObjectValidator({
             message: 'systemPromptVariables must be an object with valid VariableDefinitionDto values.',
@@ -172,6 +193,12 @@ export namespace OB1PromptDto {
         //response_format
         @IsOptional() å
         promptResponseFormat?: OB1LLM.ResponseFormatJSONSchema;
+
+        @IsBoolean()
+        validationRequired: boolean;
+
+        @IsBoolean()
+        validationGate: boolean;
     }
 
     export class ExecutePromptBaseDto {
@@ -182,6 +209,14 @@ export namespace OB1PromptDto {
         @IsOptional()
         @IsObject()
         toolENVInputVariables?: Record<string, any>;
+
+        @IsOptional()
+        @IsObject()
+        activityENVInputVariables?: Record<string, any>;
+
+        @IsOptional()
+        @IsObject()
+        workflowENVInputVariables?: Record<string, any>;
 
         @IsOptional()
         @IsObject()
@@ -208,17 +243,20 @@ export namespace OB1PromptDto {
         @IsOptional()
         @IsObject()
         promptConfig?: Record<string, any>;
+
+        @IsOptional()
+        @IsString()
+        consultantOrgShortName?: string;
+
+        @IsOptional()
+        @IsString()
+        personId?: string;
     }
 
     export class ExecutePromptWithUserPromptDto extends ExecutePromptBaseDto {
         @IsOptional()
         @IsString()
         userPrompt: string;
-
-        @IsOptional()
-        @IsArray()
-        @ValidateNested({ each: true })
-        messageHistory?: (OB1LLM.NonToolMessage | OB1LLM.ChatCompletionToolMessageParam)[];
 
     }
 
@@ -229,12 +267,6 @@ export namespace OB1PromptDto {
             [key: string]: any;
         };
 
-        @IsOptional()
-        @IsArray()
-        @ValidateNested({ each: true })
-        @Type(() => OB1LLM.NonToolMessage) // Use correct type here
-        @Expose()
-        messageHistory?: (OB1LLM.NonToolMessage | OB1LLM.ChatCompletionToolMessageParam)[];
     }
 
 

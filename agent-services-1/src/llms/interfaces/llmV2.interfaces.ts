@@ -253,7 +253,12 @@ export namespace OB1LLM {
         toolInputSchema?: Record<string, any>;
     }
 
-
+    export interface ResponseFormatJSONObject {
+        /**
+         * The type of response format being defined: `json_object`
+         */
+        type: 'json_object';
+    }
     export interface ResponseFormatJSONSchema {
         json_schema: ResponseFormatJSONSchema.JSONSchema;
 
@@ -392,7 +397,7 @@ export namespace OB1LLM {
 
         //response_forma
         @IsOptional()
-        response_format?: ResponseFormatJSONSchema;
+        response_format?: ResponseFormatJSONSchema | ResponseFormatJSONObject;
         //e.g
         // response_format: {
         // "type": "json_schema",
@@ -501,7 +506,7 @@ export namespace OB1LLM {
     // export type FunctionParameters = Record<string, unknown>;
 
     export interface LLMResponse {
-        content: string;
+        content: string | any;
         model: string;
         provider: LLMProvider;
         usage: {
@@ -513,7 +518,8 @@ export namespace OB1LLM {
         tool_calls?: Array<ChatCompletionMessageToolCall>;
         reqHeaders?: any;
         messageHistory: (NonToolMessage | ChatCompletionToolMessageParam)[];
-
+        validationResults?: string;
+        validationPassed?: boolean;
         //custom error message
         // error: boolean;
 

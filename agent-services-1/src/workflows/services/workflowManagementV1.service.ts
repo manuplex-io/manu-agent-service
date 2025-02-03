@@ -14,6 +14,7 @@ import { OB1Workflow } from '../interfaces/workflow.interface';
 
 import { WorkflowTestingV1Service } from 'src/workflows/services/testing/workflowTestingV1.service';
 import { TSValidationOb1Service } from '../../aa-common/ts-validation-ob1/services/ts-validation-ob1.service';
+import { OB1TSValidation } from 'src/aa-common/ts-validation-ob1/interfaces/ts-validation-ob1.interface';
 @Injectable()
 export class WorkflowManagementV1Service {
     private readonly logger = new Logger(WorkflowManagementV1Service.name);
@@ -32,7 +33,6 @@ export class WorkflowManagementV1Service {
     ): Promise<OB1Workflow.ServiceResponse<OB1Workflow.WorkflowResponse>> {
         try {
             // Fetch Workflow Category
-            this.logger.debug(`Creating workflow: ${JSON.stringify(workflow, null, 2)}`);
             const category = await this.workflowCategoryRepository.findOne({
                 where: {
                     workflowCategoryId: workflow.workflowCategoryId,
@@ -46,45 +46,73 @@ export class WorkflowManagementV1Service {
                     code: 'CATEGORY_NOT_FOUND',
                 });
             }
-            //this.logger.debug(`Category found & checking Activities: ${JSON.stringify(category, null, 2)}`);
-            // Verify Activities
+
+            // Verify Activities and Subworkflows exist
             if (!workflow.activitiesUsedByWorkflow || workflow.activitiesUsedByWorkflow.length === 0) {
                 throw new BadRequestException({
-                    message: 'No activities provided in Workflow, they must be provided',
-                    code: 'NO_ACTIVITIES_PROVIDED',
+                    message: 'No activities or subworkflows provided in Workflow',
+                    code: 'NO_ACTIVITIES_OR_SUBWORKFLOWS_PROVIDED',
                 });
             }
 
+            // Single query to fetch all activities and initial subworkflows
+            const [activities, initialSubWorkflows] = await Promise.all([
+                this.activityRepository.find({
+                    where: { activityId: In(workflow.activitiesUsedByWorkflow) },
+                }),
+                this.fetchWorkflowWithNestedRelations(workflow.activitiesUsedByWorkflow)
+            ]);
 
-            const activities = await this.activityRepository.find({
-                where: {
-                    activityId: In(workflow.activitiesUsedByWorkflow),
-                },
-            });
-            //this.logger.debug(`Activities found & checking against workflow Activities: ${JSON.stringify(activities, null, 2)}`);
+            // Recursively collect all nested subworkflows
+            const allSubWorkflows: OB1AgentWorkflows[] = [];
+            const processedWorkflowIds = new Set<string>();
 
+            const collectNestedWorkflows = async (workflows: OB1AgentWorkflows[]) => {
+                for (const wf of workflows) {
+                    if (processedWorkflowIds.has(wf.workflowId)) continue;
+                    
+                    processedWorkflowIds.add(wf.workflowId);
+                    allSubWorkflows.push(wf);
 
-            if (activities.length !== workflow.activitiesUsedByWorkflow.length) {
-                const foundIds = activities.map((a) => a.activityId);
-                const missingIds = workflow.activitiesUsedByWorkflow.filter((id) => !foundIds.includes(id));
+                    // Get nested subworkflows from activities
+                    const nestedWorkflowIds = wf.workflowActivities
+                        ?.filter(wa => wa.subWorkflow)
+                        .map(wa => wa.subWorkflow.workflowId) || [];
+
+                    if (nestedWorkflowIds.length > 0) {
+                        const nestedWorkflows = await this.fetchWorkflowWithNestedRelations(nestedWorkflowIds);
+                        await collectNestedWorkflows(nestedWorkflows);
+                    }
+                }
+            };
+
+            await collectNestedWorkflows(initialSubWorkflows);
+
+            // Update the foundIds check to include all collected subworkflows
+            const foundIds = [
+                ...activities.map(a => a.activityId),
+                ...allSubWorkflows.map(w => w.workflowId)
+            ];
+            const missingIds = workflow.activitiesUsedByWorkflow.filter(id => !foundIds.includes(id));
+
+            if (missingIds.length > 0) {
                 throw new BadRequestException({
-                    message: 'Some activities were not found',
-                    code: 'ACTIVITIES_NOT_FOUND',
-                    details: { missingActivityIds: missingIds },
+                    message: 'Some activities or subworkflows were not found',
+                    code: 'ITEMS_NOT_FOUND',
+                    details: { missingIds },
                 });
             }
 
-            //this.logger.debug(`Activities found & going to validation: ${JSON.stringify(activities, null, 2)}`);
-            // TODO: Validate workflow using a validateAnyWorkflow method
-            await this.workflowTestingV1Service.validateAnyWorkflow(workflow);
+            // Validate workflow with all fetched data
+            const validateWorkflow: OB1Workflow.ValidateWorkflow = {
+                ...workflow,
+                subWorkflows: allSubWorkflows
+            };
 
-            // CODE CLEANUP - Series of code cleanup steps
-            const codeCleanup1 = this.tsValidationOb1Service.updateConfigInputToOptionalIfUnused(workflow.workflowCode);
-            const codeCleanup2 = this.tsValidationOb1Service.removeExportDefaultModifiers(codeCleanup1);
+            const validateWorkflowResponse: OB1Workflow.ValidateWorkflowRespose = await this.workflowTestingV1Service.validateAnyWorkflow(validateWorkflow);
 
-            // Update workflow code if it has changed
-            if (codeCleanup2 !== workflow.workflowCode) {
-                workflow.workflowCode = codeCleanup2;
+            if (validateWorkflowResponse.workflowCode !== workflow.workflowCode) {
+                workflow.workflowCode = validateWorkflowResponse.workflowCode;
             }
             // Create New Workflow
             const newWorkflow = this.workflowRepository.create({
@@ -96,20 +124,24 @@ export class WorkflowManagementV1Service {
 
             const savedWorkflow = await this.workflowRepository.save(newWorkflow);
 
-            // Link Activities to Workflow
-            const workflowActivities = activities.map((activity) => {
-                return this.workflowActivitiesRepository.create({
+            // Create workflow activities relationships
+            const workflowActivities = [
+                ...activities.map(activity => this.workflowActivitiesRepository.create({
                     workflow: savedWorkflow,
                     activity: activity,
-                });
-            });
+                })),
+                ...allSubWorkflows.map(subworkflow => this.workflowActivitiesRepository.create({
+                    workflow: savedWorkflow,
+                    subWorkflow: subworkflow,
+                }))
+            ];
 
             await this.workflowActivitiesRepository.save(workflowActivities);
 
-            // Fetch the workflow with activities for response
+            // Fetch the complete workflow for response
             const fullWorkflow = await this.workflowRepository.findOne({
                 where: { workflowId: savedWorkflow.workflowId },
-                relations: ['workflowCategory', 'workflowActivities', 'workflowActivities.activity'],
+                relations: ['workflowCategory', 'workflowActivities', 'workflowActivities.activity', 'workflowActivities.subWorkflow'],
             });
 
             return {
@@ -132,7 +164,12 @@ export class WorkflowManagementV1Service {
         try {
             const workflow = await this.workflowRepository.findOne({
                 where: { workflowId: id },
-                relations: ['workflowCategory', 'workflowActivities', 'workflowActivities.activity'],
+                relations: [
+                    'workflowCategory',
+                    'workflowActivities',
+                    'workflowActivities.activity',
+                    'workflowActivities.subWorkflow'
+                ],
             });
 
             if (!workflow) {
@@ -167,6 +204,7 @@ export class WorkflowManagementV1Service {
                 .leftJoinAndSelect('workflow.workflowCategory', 'workflowCategory')
                 .leftJoinAndSelect('workflow.workflowActivities', 'workflowActivities')
                 .leftJoinAndSelect('workflowActivities.activity', 'activity')
+                .leftJoinAndSelect('workflowActivities.subWorkflow', 'subWorkflow')
                 .where('workflow.workflowCreatedByConsultantOrgShortName = :consultantOrgShortName', { consultantOrgShortName });
 
             if (workflowCategoryId) {
@@ -215,7 +253,12 @@ export class WorkflowManagementV1Service {
         try {
             const workflow = await this.workflowRepository.findOne({
                 where: { workflowId: id },
-                relations: ['workflowCategory', 'workflowActivities', 'workflowActivities.activity'],
+                relations: [
+                    'workflowCategory',
+                    'workflowActivities',
+                    'workflowActivities.activity',
+                    'workflowActivities.subWorkflow'
+                ],
             });
 
             if (!workflow) {
@@ -352,17 +395,35 @@ export class WorkflowManagementV1Service {
                 ? {
                     workflowCategoryId: workflow.workflowCategory.workflowCategoryId,
                     workflowCategoryName: workflow.workflowCategory.workflowCategoryName
-                   
                 }
                 : undefined,
             activitiesUsedByWorkflow: workflow.workflowActivities
-                ? workflow.workflowActivities.map((wa) => ({
-                    activityId: wa.activity.activityId,
-                    activityName: wa.activity.activityName,
-                }))
+                ? workflow.workflowActivities
+                    .filter(wa => wa.activity) // Only include entries with activities
+                    .map((wa) => ({
+                        activityId: wa.activity.activityId,
+                        activityName: wa.activity.activityName,
+                    }))
                 : [],
             workflowCreatedAt: workflow.workflowCreatedAt,
             workflowUpdatedAt: workflow.workflowUpdatedAt,
         };
+    }
+
+    // Add this helper function to the class
+    private async fetchWorkflowWithNestedRelations(workflowIds: string[]): Promise<OB1AgentWorkflows[]> {
+        if (!workflowIds || workflowIds.length === 0) return [];
+        
+        return this.workflowRepository.find({
+            where: { workflowId: In(workflowIds) },
+            relations: [
+                'workflowActivities',
+                'workflowActivities.activity',
+                'workflowActivities.subWorkflow',
+                'workflowActivities.subWorkflow.workflowActivities',
+                'workflowActivities.subWorkflow.workflowActivities.activity',
+                'workflowActivities.subWorkflow.workflowActivities.subWorkflow'  // Add this to get next level
+            ],
+        });
     }
 }

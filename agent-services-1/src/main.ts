@@ -1,12 +1,21 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { Transport, MicroserviceOptions } from '@nestjs/microservices';
+import { Logger } from '@nestjs/common';
+
+// // Import package.json
+// import * as packageJson from '../package.json';
 
 async function bootstrap() {
-  console.log("app started")
+  const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule, {
     logger: ['log', 'debug', 'error', 'warn', 'verbose'], // Adjust based on LOG_LEVEL
   });
+
+  // Optionally log the version
+  logger.log(`Starting service : agentService v0.1.0`);
+
+
   const SERVICE_NAME = process.env.SERVICE_NAME;
   const KAFKA_SESSION_TIMEOUT = parseInt(process.env.KAFKA_SESSION_TIMEOUT) || 60000;
   const KAFKA_HEARTBEAT_INTERVAL = parseInt(process.env.KAFKA_HEARTBEAT_INTERVAL) || 20000;
@@ -16,7 +25,7 @@ async function bootstrap() {
     transport: Transport.KAFKA,
     options: {
       client: {
-        brokers: ['kafka-server-1.manuplex-uswest-2.local:9092'], // Kafka broker address
+        brokers: ['kafka-server-1.orangebox-uswest-2.local:9092'], // Kafka broker address
         // connectionTimeout: 3000,
         // requestTimeout: 60000,
       },
