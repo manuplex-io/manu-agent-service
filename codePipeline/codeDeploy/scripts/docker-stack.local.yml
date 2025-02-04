@@ -1,6 +1,6 @@
 services:
   agent-services-1:
-    image: agent-services-1:latest
+    image: agent-services:latest
     hostname: agent-services-1.manuplex-uswest-2.local
     networks:
       - OB-prod-net1-overlay
