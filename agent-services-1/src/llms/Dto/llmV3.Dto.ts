@@ -50,6 +50,10 @@ export namespace OB1LLMV3Dto {
     export class UserPromptDto {
         @IsOptional()
         @IsString()
+        text: string;
+
+        @IsOptional()
+        @IsString()
         imageUrl?: string;
 
         @IsOptional()
@@ -64,7 +68,7 @@ export namespace OB1LLMV3Dto {
         @IsString()
         inputAudioFormat?: string;
 
-        @IsNotEmpty()
+        @IsOptional()
         @IsString()
         data: string;
     }
@@ -76,8 +80,9 @@ export namespace OB1LLMV3Dto {
         systemPrompt: string;
 
         @IsNotEmpty()
-        @IsString()
-        userPrompt: string | Array<UserPromptDto>;
+        @ValidateNested({ each: true })
+        @Type(() => UserPromptDto)
+        userPrompt: UserPromptDto[] | string;
 
         @IsOptional()
         @IsArray()

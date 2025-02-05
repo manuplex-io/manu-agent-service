@@ -3,6 +3,7 @@ import { Type } from 'class-transformer';
 import { OB1LLM } from '../../llms/interfaces/llmV2.interfaces';
 import { DynamicObjectValidator } from '../Dto/DynamicObject.validator'
 import { OB1AgentPrompts } from '../entities/ob1-agent-prompts.entity';
+import { OB1Tool } from 'src/tools/interfaces/tools.interface';
 
 
 export namespace OB1Prompt {
@@ -10,7 +11,8 @@ export namespace OB1Prompt {
     export enum DefaultPromptConfig {
         DEFAULT_MAX_LLM_CALLS = 5,
         DEFAULT_MAX_TOOL_CALLS = 5,
-        DEFAULT_MAX_TOOL_EXECUTION_TIME = 30000, //30secs
+        DEFAULT_MAX_TOOL_EXECUTION_TIME = 120000, //120 secs, will adjust in future
+        DEFAULT_VALIDATION_GATE_RETRY = 3,
     }
 
     export enum PromptStatus {
@@ -26,6 +28,8 @@ export namespace OB1Prompt {
         userPrompt?: string;
         availableTools?: Array<OB1LLM.InputTool>;
         toolENVInputVariables?: Record<string, any>;
+        activityENVInputVariables?: Record<string, any>;
+        workflowENVInputVariables?: Record<string, any>;
 
         promptId: string;
         systemPromptVariables?: Record<string, any>;
@@ -42,7 +46,13 @@ export namespace OB1Prompt {
             toolTimeout?: number;
             maxTotalExecutionTime?: number;
         };
-
+        availableToolSet?: Set<string>;
+        availableWorkflowSet?: Set<string>;
+        availableActivitySet?: Set<string>;
+        
+        consultantOrgShortName?: string;
+        personId?: string;
+        validationRequired?: boolean;
         messageHistory?: (OB1LLM.NonToolMessage | OB1LLM.ChatCompletionToolMessageParam)[];
 
     }
@@ -63,11 +73,22 @@ export namespace OB1Prompt {
             toolTimeout?: number;
             maxTotalExecutionTime?: number;
         };
+        consultantOrgShortName?: string;
+        personId?: string;
 
+        toolENVInputVariables?: Record<string, any>;
+        activityENVInputVariables?: Record<string, any>;
+        workflowENVInputVariables?: Record<string, any>;
     }
 
     export interface ExecutePromptWithUserPrompt extends ExecutePromptWithToolsBase {
         userPrompt: string;
+    }
+
+    export interface ExecutePromptResponseAsync {
+        requestId: string;
+        requestMetadata: Record<string, any>;
+        requestorId: string;
     }
 
     export interface ExecutePromptWithoutUserPrompt extends ExecutePromptWithToolsBase {
@@ -144,6 +165,14 @@ export namespace OB1Prompt {
         promptAvailableTools?: string[];  //only the toolId's in Array
 
         @IsOptional()
+        @IsArray()
+        promptAvailableActivities?: string[];  //only the activityId's in Array
+
+        @IsOptional()
+        @IsArray()
+        promptAvailableWorkflows?: string[];  //only the workflowId's in Array
+
+        @IsOptional()
         @IsObject()
         @DynamicObjectValidator({
             message: 'systemPromptVariables must be an object with valid VariableDefinitionDto values.',
@@ -185,11 +214,11 @@ export namespace OB1Prompt {
     }
 
 
-    export class UpdatePromptDto extends CreatePrompt {
-        @IsOptional()
-        @IsEnum(PromptStatus)
-        promptStatus?: PromptStatus;
-    }
+    // export class UpdatePromptDto extends CreatePrompt {
+    //     @IsOptional()
+    //     @IsEnum(PromptStatus)
+    //     promptStatus?: PromptStatus;
+    // }
 
 
     export class ListPromptsQueryDto {
@@ -397,4 +426,65 @@ export namespace OB1Prompt {
         updatedVersion: PromptResponse;
         changes: string[];
     }
+
+    export interface ValidationWeights {
+        relevance: number;
+        toolUsage: number;
+        completeness: number;
+        consistency: number;
+        edgeCases: number;
+    }
+    
+    export interface ValidationConfig {
+        threshold?: number;
+        weights?: Partial<ValidationWeights>;
+    }
+    
+    export interface ValidationMetrics {
+        relevanceScore: number;
+        toolUsageScore: number;
+        clarityScore: number;
+        accuracyScore: number;
+    }
+    
+    export interface ValidationExplanations {
+        relevanceAnalysis: string[];
+        toolUsageAnalysis: string[];
+        clarityAnalysis: string[];
+        accuracyAnalysis: string[];
+    }
+    
+    export interface ValidationCriticalIssues {
+        issue?: string;
+        impact?: string;
+        recommendation?: string;
+    }
+    
+    export interface ValidationScore {
+        metrics: ValidationMetrics;
+        explanations: ValidationExplanations;
+        criticalIssues?: ValidationCriticalIssues[];
+        overallScore: number;
+        passed: boolean;
+    }
+    
+    export interface ValidationRequest {
+        originalPrompts: {
+            systemPrompt: string;
+            userPrompt: string;
+        };
+        toolCallHistory: OB1Tool.ToolCallLog[];
+        finalResponse: any;
+        validationConfig?: ValidationConfig;
+        tracing: OB1LLM.promptTracing;
+        requestMetadata?: Record<string, any>;
+
+    }
+    export const DEFAULT_WEIGHTS: ValidationWeights = {
+        relevance: 0.3,
+        toolUsage: 0.2,
+        completeness: 0.2,
+        consistency: 0.2,
+        edgeCases: 0.1
+    };
 }

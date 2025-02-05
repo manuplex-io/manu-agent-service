@@ -254,6 +254,12 @@ export namespace OB1ToolDto {
         consultantOrgShortName: string;
     }
 
+    export class GetToolIdsByExternalNamesDto {
+        @IsArray()
+        @IsString({ each: true })
+        externalNames: string[];
+    }
+
     export class GetCategoryDto {
         @IsNotEmpty()
         @IsString()
@@ -350,6 +356,26 @@ export namespace OB1ToolDto {
         toolExecutionTime: number;
     }
 
+    export class GetToolFieldsDto {
+        @IsArray()
+        @IsString({ each: true })
+        toolIds: string[];
+
+        @IsArray()
+        @IsString({ each: true })
+        @ArrayMinSize(1)
+        fields: string[];
+    }
+
+    // export class GetToolFieldsDto {
+    //     @IsUUID()
+    //     toolId: string;
+
+    //     @IsArray()
+    //     @IsString({ each: true })
+    //     @ArrayMinSize(1)
+    //     fields: string[];
+    // }
     // export class ToolPythonRequest {
 
     //     @IsObject()

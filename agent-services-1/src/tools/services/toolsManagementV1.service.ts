@@ -2,7 +2,7 @@
 
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { OB1AgentTools } from '../entities/ob1-agent-tools.entity';
 import { OB1AgentToolCategory } from '../entities/ob1-agent-toolCategory.entity';
 import {
@@ -205,6 +205,95 @@ export class ToolsManagementV1Service {
             });
         }
     }
+
+    async getToolByExternalName(externalName: string): Promise<OB1Tool.ServiceResponse<OB1Tool.ToolResponseDto>> {
+        try {
+            const tool = await this.toolsRepository.findOne({
+                where: { toolExternalName: externalName },
+                relations: ['toolCategory']
+            });
+
+            if (!tool) {
+                throw new BadRequestException({
+                    message: `Tool with external name ${externalName} not found`,
+                    code: 'TOOL_NOT_FOUND'
+                });
+            }
+
+            return {
+                success: true,
+                data: tool,
+            };
+        } catch (error) {
+            this.logger.error(`Failed to fetch tool: ${error.message}`, error.stack);
+            throw new BadRequestException({
+                message: 'Failed to fetch tool',
+                code: 'TOOL_FETCH_FAILED', 
+                errorSuperDetails: { ...error }
+            });
+        }
+    }
+
+    async getToolsByExternalNames(externalNames: string[]): Promise<OB1Tool.ServiceResponse<OB1Tool.ToolResponseDto[]>> {
+        try {
+            const tools = await this.toolsRepository.find({
+                where: { toolExternalName: In(externalNames) },
+                relations: ['toolCategory']
+            });
+    
+            if (tools.length === 0) {
+                throw new BadRequestException({
+                    message: `No tools found with the provided external names`,
+                    code: 'TOOLS_NOT_FOUND'
+                });
+            }
+    
+            return {
+                success: true,
+                data: tools.map(tool => this.mapToToolResponse(tool)),
+            };
+        } catch (error) {
+            this.logger.error(`Failed to fetch tools by external names: ${error.message}`, error.stack);
+            throw new BadRequestException({
+                message: 'Failed to fetch tools',
+                code: 'TOOLS_FETCH_FAILED',
+                errorSuperDetails: { ...error }
+            });
+        }
+    }
+    
+    async getToolIdsByExternalNames(externalNames: string[]): Promise<OB1Tool.ServiceResponse<{toolId: string, toolExternalName: string}[]>> {
+        try {
+            const tools = await this.toolsRepository.find({
+                where: { toolExternalName: In(externalNames) },
+                select: [
+                    'toolId',
+                    'toolExternalName',
+                ]
+            });
+    
+            if (tools.length === 0) {
+                throw new BadRequestException({
+                    message: `No tools found with the provided external names`,
+                    code: 'TOOLS_NOT_FOUND'
+                });
+            }
+    
+            return {
+                success: true,
+                data: tools
+            };
+        } catch (error) {
+            this.logger.error(`Failed to fetch tools by external names: ${error.message}`, error.stack);
+            throw new BadRequestException({
+                message: 'Failed to fetch tools',
+                code: 'TOOLS_FETCH_FAILED',
+                errorSuperDetails: { ...error }
+            });
+        }
+    }
+    
+
     async updateTool(id: string, updateToolDto: OB1Tool.UpdateTool): Promise<OB1Tool.ServiceResponse<OB1Tool.ToolUpdateResult>> {
         try {
             const tool = await this.toolsRepository.findOne({
@@ -305,6 +394,53 @@ export class ToolsManagementV1Service {
             toolCreatedAt: tool.toolCreatedAt,
             toolUpdatedAt: tool.toolUpdatedAt
         };
+    }
+
+    async getToolFields(input: OB1Tool.GetToolFieldsDto): Promise<OB1Tool.ServiceResponse<Partial<OB1AgentTools>[]>> {
+        try {
+            // Validate that all requested fields exist in the entity
+            const validFields = new Set(Object.keys(new OB1AgentTools()));
+            const invalidFields = input.fields.filter(field => !validFields.has(field));
+            
+            if (invalidFields.length > 0) {
+                throw new BadRequestException({
+                    message: `Invalid fields requested: ${invalidFields.join(', ')}`,
+                    code: 'INVALID_FIELDS_REQUESTED'
+                });
+            }
+
+            const fieldsToSelect = Array.from(new Set(['toolId', ...input.fields]));
+
+            const selectObject = fieldsToSelect.reduce((acc, field) => ({
+                ...acc,
+                [field]: true
+            }), {});
+
+            const tool = await this.toolsRepository.find({
+                where: { toolId: In(input.toolIds) },
+                select: selectObject,
+                relations: input.fields.includes('toolCategory') ? ['toolCategory'] : []
+            });
+
+            if (!tool) {
+                throw new BadRequestException({
+                    message: `Tool with ID ${input.toolIds} not found`,
+                    code: 'TOOL_NOT_FOUND'
+                });
+            }
+
+            return {
+                success: true,
+                data: tool,
+            };
+        } catch (error) {
+            this.logger.error(`Failed to fetch tool fields: ${error.message}`, error.stack);
+            throw new BadRequestException({
+                message: 'Failed to fetch tool fields',
+                code: 'TOOL_FIELDS_FETCH_FAILED',
+                errorSuperDetails: { ...error }
+            });
+        }
     }
 
 }

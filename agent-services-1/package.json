@@ -1,6 +1,6 @@
 {
   "name": "agent-services-1",
-  "version": "0.0.25",
+  "version": "0.3.1",
   "description": "",
   "author": "",
   "private": true,
@@ -38,6 +38,7 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "esbuild": "^0.24.0",
+    "gpt-tokenizer": "^2.8.1",
     "ioredis": "^5.4.1",
     "kafkajs": "^2.2.4",
     "openai": "^4.71.0",

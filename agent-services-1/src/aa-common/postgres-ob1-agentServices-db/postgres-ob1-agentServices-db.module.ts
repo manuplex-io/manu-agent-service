@@ -21,6 +21,8 @@ import { OB1AgentWorkflowActivities } from '../../workflows/entities/ob1-agent-w
 import { OB1AgentActivities } from '../../activity/entities/ob1-agent-activities.entity';
 import { OB1AgentActivityCategory } from '../../activity/entities/ob1-agent-activityCategory.entity';
 import { OB1AgentActivityExecution } from '../../activity/entities/ob1-agent-activityExecutionLog.entity';
+// RAG
+// import { OB1AgentRags } from '../../rags/entities/ob1-agent-rags.entity';
 
 
 @Global() //no need to import this module in other modules
@@ -34,17 +36,6 @@ import { OB1AgentActivityExecution } from '../../activity/entities/ob1-agent-act
         const isLocalEnv = ['local', 'localhost'].includes(process.env.ENV);
         const isDevEnv = process.env.ENV === 'dev';
         const isProdEnv = process.env.ENV === 'prod';
-        console.log('isLocalEnv', isLocalEnv);
-        console.log('username', isLocalEnv
-          ? process.env.OB1_DB_USERNAME_AGENTSERVICE_LOCAL
-          : isDevEnv
-            ? process.env.OB1_DB_USERNAME_AGENTSERVICE_DEV
-            : process.env.OB1_DB_USERNAME_AGENTSERVICE);
-        console.log('password', isLocalEnv
-          ? process.env.OB1_DB_PASSWORD_AGENTSERVICE_LOCAL
-          : isDevEnv
-            ? process.env.OB1_DB_PASSWORD_AGENTSERVICE_DEV
-            : process.env.OB1_DB_PASSWORD_AGENTSERVICE);
         return {
           type: 'postgres',
           host: process.env.OB1_DB_HOST,
@@ -75,7 +66,7 @@ import { OB1AgentActivityExecution } from '../../activity/entities/ob1-agent-act
             OB1AgentActivityCategory,
             OB1AgentActivityExecution,
           ], // Add the entities relevant to this DB
-          // synchronize: isLocalEnv || isDevEnv, // Synchronize only in 'local', 'localhost', or 'dev' environments
+          synchronize: isLocalEnv || isDevEnv, // Synchronize only in 'local', 'localhost', or 'dev' environments
         };
       },
       dataSourceFactory: async (options) => {
@@ -90,6 +81,45 @@ import { OB1AgentActivityExecution } from '../../activity/entities/ob1-agent-act
         return dataSource;
       },
     }),
+    // TypeOrmModule.forRootAsync({
+    //   name: 'vectorDb',
+    //   useFactory: () => {
+    //     const isLocalEnv = ['local', 'localhost'].includes(process.env.ENV);
+    //     const isDevEnv = process.env.ENV === 'dev';
+    //     const isProdEnv = process.env.ENV === 'prod';
+
+    //     return {
+    //       type: 'postgres',
+    //       host: process.env.OB1_VECTOR_DB_HOST,
+    //       port: +process.env.OB1_DB_PORT,
+    //       database: process.env.OB1_DB_DATABASE_AGENTSERVICE || 'ob1-agentServices-db',
+    //       username: isLocalEnv
+    //         ? process.env.OB1_DB_USERNAME_AGENTSERVICE_LOCAL
+    //         : isDevEnv
+    //           ? process.env.OB1_DB_USERNAME_AGENTSERVICE_DEV
+    //           : process.env.OB1_DB_USERNAME_AGENTSERVICE,
+    //       password: isLocalEnv
+    //         ? process.env.OB1_DB_PASSWORD_AGENTSERVICE_LOCAL
+    //         : isDevEnv
+    //           ? process.env.OB1_DB_PASSWORD_AGENTSERVICE_DEV
+    //           : process.env.OB1_DB_PASSWORD_AGENTSERVICE,
+    //       entities: [
+    //         OB1AgentRags,
+    //       ],
+    //       synchronize: false
+    //     };
+    //   },
+    //   dataSourceFactory: async (options) => {
+    //     const dataSource = new DataSource(options);
+    //     // Add vector type if needed for second database
+    //     // @ts-ignore
+    //     dataSource.driver.supportedDataTypes.push('vector');
+    //     await dataSource.initialize();
+
+    //     OB1AgentRags.setDataSource(dataSource);
+    //     return dataSource;
+    //   },
+    // }),
     TypeOrmModule.forFeature([
       OB1AgentTools,
       OB1AgentToolCategory,
@@ -105,6 +135,10 @@ import { OB1AgentActivityExecution } from '../../activity/entities/ob1-agent-act
       OB1AgentActivityCategory,
       OB1AgentActivityExecution,
     ]), // Register the entities for repositories in your services
+    // TypeOrmModule.forFeature(
+    //   [OB1AgentRags],
+    //   'vectorDb'
+    // ),
   ],
   exports: [TypeOrmModule],
 })

@@ -11,6 +11,7 @@ import { LLMV2Service } from 'src/llms/services/llmV2.service';
 import { LLMV3Service } from 'src/llms/services/llmV3.service';
 import { PromptCRUDV1 } from 'src/aa-common/kafka-ob1/services/kafka-ob1-processing/functions/promptCRUDV1.service';
 import { ToolCRUDV1 } from 'src/aa-common/kafka-ob1/services/kafka-ob1-processing/functions/toolCRUDV1.service';
+// import { RAGCRUDV1 } from 'src/aa-common/kafka-ob1/services/kafka-ob1-processing/functions/ragCRUDV1.service';
 import { ActivityCRUDV1 } from './functions/activityCRUDV1.service';
 import { WorkflowCRUDV1 } from './functions/workflowCRUDV1.service';
 import { LLMCRUDV1 } from './functions/llmCRUDV1.service';
@@ -29,7 +30,7 @@ export class KafkaOb1ProcessingService {
         private activityCRUDV1: ActivityCRUDV1,
         private workflowCRUDV1: WorkflowCRUDV1,
         private llmCRUDV1: LLMCRUDV1,
-
+        // private ragCRUDV1: RAGCRUDV1,
     ) { }
 
     async processRequest(message: OB1AgentService.MessageIncomingValueV2, context: KafkaContext) {
@@ -56,6 +57,12 @@ export class KafkaOb1ProcessingService {
                 // Request can be large due to image/audio uploads
                 // this.logger.log(`llmCRUD-V1: inputWithTracing:\n${JSON.stringify(inputWithTracing, null, 2)}`);
                 return this.llmCRUDV1.CRUDLLMRoutes(inputWithTracing);
+            }
+            case 'ragCRUD-V1': {
+                // const validatedInput = await this.validateInput(functionInput, CRUDFunctionInput, functionName) as CRUDFunctionInput;
+                // const inputWithTracing = this.addTracingMetadata(validatedInput, OB1Headers) as CRUDFunctionInputExtended;
+                // this.logger.log(`ragCRUD-V1: inputWithTracing:\n${JSON.stringify(inputWithTracing, null, 2)}`);
+                // return this.ragCRUDV1.CRUDRAGRoutes(inputWithTracing);
             }
 
             case 'promptCRUD-V1': {

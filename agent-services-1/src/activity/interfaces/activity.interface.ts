@@ -164,7 +164,12 @@ export namespace OB1Activity {
         imports: Set<string>;
         workflowExternalName: string;
     }
-
+    export interface ActivityLoadingRequestV2 {
+        workflowExternalName: string;
+        workflowId: string;
+        workflowActivityImportMap?: Map<string, Set<string>>;
+        workflowActivityCodeMap?: Map<string, string>;
+    }
     export interface ActivityLoadingResponse {
         activityCode: string;
     }
