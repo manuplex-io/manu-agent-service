@@ -469,24 +469,26 @@ export class WorkflowExecutionTypeScriptV1Service {
             //     ...(workflowScheduleConfig?.endTime && { endAt: new Date(workflowScheduleConfig.endTime) })
             // };
 
-            const startDate = new Date(workflowScheduleConfig.startTime);
+            // const startDate = new Date(workflowScheduleConfig.startTime);
             const temporalSearchAttributes = this.convertToTemporalSearchAttributes(request);
 
-            // Create calendar spec from the start time
-            const calendarSpec = {
-                second: startDate.getUTCSeconds(),
-                minute: startDate.getUTCMinutes(),
-                hour: startDate.getUTCHours(),
-                dayOfMonth: startDate.getUTCDate(),
-                month: MONTHS[startDate.getUTCMonth()], // Convert to Temporal Month enum
-                year: startDate.getUTCFullYear(),
-                comment: `Scheduled execution for ${startDate.toISOString()}`
-            };
+            // // Create calendar spec from the start time
+            // const calendarSpec = {
+            //     second: startDate.getUTCSeconds(),
+            //     minute: startDate.getUTCMinutes(),
+            //     hour: startDate.getUTCHours(),
+            //     dayOfMonth: startDate.getUTCDate(),
+            //     month: MONTHS[startDate.getUTCMonth()], // Convert to Temporal Month enum
+            //     year: startDate.getUTCFullYear(),
+            //     comment: `Scheduled execution for ${startDate.toISOString()}`
+            // };
 
             const schedule = await this.TemporalScheduleClient.create({
                 scheduleId: temporalScheduleId,
                 spec: {
-                    calendars: [calendarSpec]
+                    // calendars: [calendarSpec],
+                    cronExpressions: ["0 */5 * * * * *"], // Run every 5 minutes
+
                 },
                 action: {
                     type: 'startWorkflow',
