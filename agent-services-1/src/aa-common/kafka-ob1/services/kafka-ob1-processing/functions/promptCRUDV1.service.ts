@@ -1,6 +1,7 @@
 import { Injectable, ValidationPipe, Logger, BadRequestException } from '@nestjs/common';
 import { PromptManagementV1Service } from '../../../../../prompts/services/promptManagementV1.service';
 import { PromptExecutionV1Service } from '../../../../../prompts/services/promptExecutionV1.service';
+import { PromptLogV1Service } from '../../../../../prompts/services/log/promptLogV1.service';
 import { PromptCategoryManagementV1Service } from '../../../../../prompts/services/promptCategoryManagementV1.service';
 import {
     CRUDFunctionInputExtended,
@@ -21,6 +22,7 @@ export class PromptCRUDV1 {
         private readonly promptManagementV1Service: PromptManagementV1Service,
         private readonly promptExecutionV1Service: PromptExecutionV1Service,
         private readonly promptCategoryManagementV1Service: PromptCategoryManagementV1Service,
+        private readonly promptLogV1Service: PromptLogV1Service,
     ) {
         this.validationPipe = new ValidationPipe({ transform: true, whitelist: true });
     }
@@ -39,7 +41,6 @@ export class PromptCRUDV1 {
                 consultantOrgShortName: consultantPayload?.consultantOrgShortName,
                 personId: consultantPayload?.personId,
             };
-
 
             switch (`${operation}-${route}`) {
                 case `${CRUDOperationName.GET}-${CRUDPromptRoute.LIST_PROMPTS}`: {
@@ -101,7 +102,7 @@ export class PromptCRUDV1 {
                         });
                     }
                     const newCRUDBody = {
-                        ...CRUDBody,
+                        ...CRUDBodyWithConsultantPayload,
                         ...routeParams,
                         requestId: requestId,
                         requestMetadata: requestMetadata
@@ -131,7 +132,7 @@ export class PromptCRUDV1 {
                         });
                     }
                     const newCRUDBody = {
-                        ...CRUDBody,
+                        ...CRUDBodyWithConsultantPayload,
                         ...routeParams,
                         requestId: requestId,
                         requestMetadata: requestMetadata
@@ -155,6 +156,50 @@ export class PromptCRUDV1 {
                     return await this.promptExecutionV1Service.executePromptWithoutUserPromptWithTools(validatedBody);
                 }
 
+                case `${CRUDOperationName.POST}-${CRUDPromptRoute.EXECUTE_WITH_USER_PROMPT_ASYNC}`: {
+                    if (!routeParams?.promptId) {
+                        throw new BadRequestException({
+                            message: 'Validation failed: promptId is required',
+                            details: { routeParams },
+                        });
+                    }
+                    const newCRUDBody = {
+                        ...CRUDBodyWithConsultantPayload,
+                        ...routeParams,
+                        requestId: requestId,
+                        requestMetadata: requestMetadata
+                    };
+
+                    const validatedBody = await this.validationPipe.transform(
+                        newCRUDBody,
+                        { metatype: OB1PromptDto.ExecutePromptWithUserPromptDto, type: 'body' }
+                    );
+
+                    return await this.promptExecutionV1Service.executePromptWithUserPromptWithToolsAsync(validatedBody);
+                }
+
+
+                case `${CRUDOperationName.POST}-${CRUDPromptRoute.EXECUTE_WITHOUT_USER_PROMPT_ASYNC}`: {
+                    if (!routeParams?.promptId) {
+                        throw new BadRequestException({
+                            message: 'Validation failed: promptId is required',
+                            details: { routeParams },
+                        });
+                    }
+                    const newCRUDBody = {
+                        ...CRUDBodyWithConsultantPayload,
+                        ...routeParams,
+                        requestId: requestId,
+                        requestMetadata: requestMetadata
+                    };
+                    const validatedBody = await this.validationPipe.transform(
+                        newCRUDBody,
+                        { metatype: OB1PromptDto.ExecutePromptWithoutUserPromptDto, type: 'body' }
+                    );
+
+                    return await this.promptExecutionV1Service.executePromptWithoutUserPromptWithToolsAsync(validatedBody);
+                }
+
                 case `${CRUDOperationName.GET}-${CRUDPromptRoute.GET_EXECUTION_LOGS}`: {
                     if (!routeParams?.promptId) {
                         throw new BadRequestException({
@@ -166,7 +211,7 @@ export class PromptCRUDV1 {
                         queryParams,
                         { metatype: OB1PromptDto.ExecutionLogsQueryDto, type: 'query' }
                     );
-                    return await this.promptExecutionV1Service.getExecutionLogs(routeParams.promptId, validatedQuery);
+                    return await this.promptLogV1Service.getExecutionLogs(routeParams.promptId, validatedQuery);
                 }
                 case `${CRUDOperationName.POST}-${CRUDPromptRoute.CREATE_CATEGORY}`: {
                     const validatedBody = await this.validationPipe.transform(

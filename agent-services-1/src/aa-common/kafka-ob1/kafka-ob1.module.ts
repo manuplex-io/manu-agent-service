@@ -9,6 +9,7 @@ import { ToolCRUDV1 } from './services/kafka-ob1-processing/functions/toolCRUDV1
 import { ActivityCRUDV1 } from './services/kafka-ob1-processing/functions/activityCRUDV1.service';
 import { WorkflowCRUDV1 } from './services/kafka-ob1-processing/functions/workflowCRUDV1.service';
 import { LLMCRUDV1 } from './services/kafka-ob1-processing/functions/llmCRUDV1.service';
+// import { RAGCRUDV1 } from './services/kafka-ob1-processing/functions/ragCRUDV1.service';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { LLMCRUDV1 } from './services/kafka-ob1-processing/functions/llmCRUDV1.s
     ActivityCRUDV1,
     WorkflowCRUDV1,
     LLMCRUDV1,
+    // RAGCRUDV1,
   ],
   controllers: [KafkaOb1Controller],
 })

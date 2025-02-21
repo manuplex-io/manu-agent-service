@@ -235,4 +235,11 @@ export namespace OB1WorkflowDto {
         @IsString()
         personId: string;
     }
+
+    export class ExecuteWorkflowAsyncMultipleDto extends ExecuteWorkflowDto {
+        @IsNotEmpty()
+        @IsArray()
+        @IsString({ each: true })
+        workflowIds: string[];
+    }
 }

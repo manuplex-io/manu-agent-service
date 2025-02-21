@@ -1,9 +1,11 @@
 import { Controller, Get, Res } from '@nestjs/common';
 import { Response } from 'express';
+import { join } from 'path';
 
 @Controller()
-export class AppController {
+export class AppHealthV1Controller {
   constructor() { }
+
 
   @Get('services/health')
   getHealth(@Res() res: Response) {

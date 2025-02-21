@@ -2,6 +2,7 @@
 
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { WorkflowTestingTypeScriptV1Service } from './workflowTestingLang/workflowTestingTypeScriptV1.service';
+import { WorkflowTestingTypeScriptV2Service } from './workflowTestingLang/workflowTestingTypeScriptV2.service';
 import { OB1Workflow } from '../../interfaces/workflow.interface';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -11,6 +12,7 @@ import { OB1AgentWorkflows } from '../../entities/ob1-agent-workflows.entity';
 export class WorkflowTestingV1Service {
     constructor(
         private readonly workflowTestingTypeScriptV1Service: WorkflowTestingTypeScriptV1Service,
+        private readonly workflowTestingTypeScriptV2Service: WorkflowTestingTypeScriptV2Service,
         @InjectRepository(OB1AgentWorkflows)
         private readonly workflowRepository: Repository<OB1AgentWorkflows>,
     ) { }
@@ -19,17 +21,11 @@ export class WorkflowTestingV1Service {
      * Validate any workflow based on its workflowLang.
      * @param workflow the full workflow object
      */
-    async validateAnyWorkflow(workflow: OB1Workflow.CreateWorkflow): Promise<void> {
+    async validateAnyWorkflow(workflow: OB1Workflow.ValidateWorkflow): Promise<OB1Workflow.ValidateWorkflowRespose> {
         switch (workflow.workflowLang) {
             case OB1Workflow.WorkflowLang.TYPESCRIPT:
-                await this.workflowTestingTypeScriptV1Service.validateWorkflow({
-                    workflowCode: workflow.workflowCode,
-                    workflowInputSchema: workflow.workflowInputSchema,
-                    workflowENVInputSchema: workflow.workflowENVInputSchema ? workflow.workflowENVInputSchema : {},
-                    workflowOutputSchema: workflow.workflowOutputSchema,
-                    workflowImports: workflow.workflowImports,
-                    activitiesUsedByWorkflow: workflow.activitiesUsedByWorkflow,
-                });
+                // return await this.workflowTestingTypeScriptV1Service.validateAndCleanWorkflow(workflow);
+                return await this.workflowTestingTypeScriptV2Service.validateAndCleanWorkflow(workflow);
                 break;
             default:
                 throw new BadRequestException(`Unsupported workflowLang: ${workflow.workflowLang}`);

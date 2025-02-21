@@ -197,7 +197,17 @@ export namespace OB1Tool {
         toolError?: any
         toolstatusCodeReturned?: number;
         toolExecutionTime: number;
+        toolDescription?: string;
     }
 
+    export class GetToolFieldsDto {
+        @IsArray()
+        toolIds: string[];
+
+        @IsArray()
+        @IsString({ each: true })
+        @ArrayMinSize(1)
+        fields: string[];
+    }
 
 }

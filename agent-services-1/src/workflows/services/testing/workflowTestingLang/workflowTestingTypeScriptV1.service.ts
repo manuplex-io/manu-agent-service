@@ -13,7 +13,9 @@ import { randomUUID } from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { OB1AgentActivities } from 'src/activity/entities/ob1-agent-activities.entity';
+import {OB1AgentWorkflows} from '../../../entities/ob1-agent-workflows.entity';
 import { TSValidationOb1Service } from '../../../../aa-common/ts-validation-ob1/services/ts-validation-ob1.service';
+import { OB1TSValidation } from 'src/aa-common/ts-validation-ob1/interfaces/ts-validation-ob1.interface';
 @Injectable()
 export class WorkflowTestingTypeScriptV1Service {
     private readonly logger = new Logger(WorkflowTestingTypeScriptV1Service.name);
@@ -25,40 +27,147 @@ export class WorkflowTestingTypeScriptV1Service {
     /**
      * Validate a workflow object before saving it.
      */
-    async validateWorkflow(workflow: {
-        workflowCode: string;
-        workflowInputSchema: Record<string, any>;
-        workflowOutputSchema: Record<string, any>;
-        workflowENVInputSchema?: Record<string, any>;
-        workflowImports?: string[];
-        activitiesUsedByWorkflow: string[];
-    }): Promise<void> {
-        const { workflowCode, workflowInputSchema, workflowOutputSchema, workflowImports, workflowENVInputSchema } = workflow;
+    async validateAndCleanWorkflow(workflow: OB1Workflow.ValidateWorkflow): Promise<OB1Workflow.ValidateWorkflowRespose> {
+        try {
+            const processedWorkflows = new Set<string>();
+            const uniqueImports = new Set<string>();
+            const uniqueActivityNames = new Set<string>();
+            let mergedActivityCode = '';
+            
+            const mergedENVinputSchema = {
+                type: 'object',
+                properties: {},
+                required: [] as string[]
+            };
 
-        //this.logger.debug('Validating workflow before saving...');
+            // CODE CLEANUP - Series of code cleanup steps before validation
+            const codeCleanup1 = this.tsValidationOb1Service.updateConfigInputToOptionalIfUnused(workflow.workflowCode);
+            if (codeCleanup1 !== workflow.workflowCode) {
+                workflow.workflowCode = codeCleanup1;
+            }
 
-        // Validate TypeScript code
-        await this.validateTypeScriptCode(workflowCode);
+            // Process direct activities first (from the current workflow)
+            const activities = await this.activityRepository.find({
+                where: { activityId: In(workflow.activitiesUsedByWorkflow) },
+            });
 
-        // Validate input and output schemas
-        await this.validateTypeCompliance(workflowCode, workflowInputSchema, workflowOutputSchema);
+            for (const activity of activities) {
+                const activityCode = this.tsValidationOb1Service.replaceFunctionNameAndDefaultForExecution({
+                    sourceCode: activity.activityCode,
+                    newFunctionName: activity.activityExternalName,
+                    functionType: OB1TSValidation.FunctionType.ACTIVITY
+                });
+                if(!uniqueActivityNames.has(activity.activityExternalName)){
+                    mergedActivityCode += activityCode + '\n';
+                    uniqueActivityNames.add(activity.activityExternalName);
+                }
+                if (activity.activityENVInputSchema) {
+                    mergedENVinputSchema.properties = {
+                        ...mergedENVinputSchema.properties,
+                        ...activity.activityENVInputSchema.properties
+                    };
+                    if (activity.activityENVInputSchema.required) {
+                        mergedENVinputSchema.required = [
+                            ...new Set([
+                                ...mergedENVinputSchema.required,
+                                ...activity.activityENVInputSchema.required
+                            ])
+                        ];
+                    }
+                }
 
-        // Validate ENV input schema
-        // const envVariables = this.tsValidationOb1Service.extractEnvironmentVariables(workflowCode, 'workflow');
-        // if (envVariables || workflowENVInputSchema) {
-        //     await this.tsValidationOb1Service.validateInputKeysExistInSchema(workflowENVInputSchema, envVariables, 'workflowENVInputSchema');
-        // }
+                if (activity.activityImports) {
+                    activity.activityImports.forEach(imp => uniqueImports.add(imp));
+                }
+            }
 
-        // Validate external imports
-        if (workflowImports && workflowImports.length > 0) {
-            await this.validateExternalImports(workflowImports);
+            // Then process subworkflows
+            const workflowQueue: OB1AgentWorkflows[] = [...(workflow.subWorkflows || [])];
+            
+            while (workflowQueue.length > 0) {
+                const currentWorkflow = workflowQueue.shift()!;
+                
+                if (processedWorkflows.has(currentWorkflow.workflowId)) {
+                    continue;
+                }
+                processedWorkflows.add(currentWorkflow.workflowId);
+
+                for (const workflowActivity of currentWorkflow.workflowActivities) {
+                    if (workflowActivity.activity) {
+                        const activity = workflowActivity.activity;
+                        const activityCode = this.tsValidationOb1Service.replaceFunctionNameAndDefaultForExecution({
+                            sourceCode: activity.activityCode,
+                            newFunctionName: activity.activityExternalName,
+                            functionType: OB1TSValidation.FunctionType.ACTIVITY
+                        });
+
+                        if(!uniqueActivityNames.has(activity.activityExternalName)){
+                            mergedActivityCode += activityCode + '\n';
+                            uniqueActivityNames.add(activity.activityExternalName);
+                        }
+
+                        if (activity.activityENVInputSchema) {
+                            mergedENVinputSchema.properties = {
+                                ...mergedENVinputSchema.properties,
+                                ...activity.activityENVInputSchema.properties
+                            };
+                            if (activity.activityENVInputSchema.required) {
+                                mergedENVinputSchema.required = [
+                                    ...new Set([
+                                        ...mergedENVinputSchema.required,
+                                        ...activity.activityENVInputSchema.required
+                                    ])
+                                ];
+                            }
+                        }
+
+                        if (activity.activityImports) {
+                            activity.activityImports.forEach(imp => uniqueImports.add(imp));
+                        }
+                    }
+
+                    if (workflowActivity.subWorkflow && !processedWorkflows.has(workflowActivity.subWorkflow.workflowId)) {
+                        workflowQueue.push(workflowActivity.subWorkflow);
+                    }
+                }
+            }
+            // Validate and consolidate imports
+            let updatedWorkflowCode = this.tsValidationOb1Service.validateAndConsolidateWorkflowImports(workflow.workflowCode);
+            updatedWorkflowCode = this.tsValidationOb1Service.validateAndConsolidateActivityImports(
+                updatedWorkflowCode, 
+                Array.from(uniqueActivityNames)
+            );
+
+            // Run all validations
+            await Promise.all([
+                this.validateTypeScriptCode(updatedWorkflowCode),
+                this.validateTypeCompliance(updatedWorkflowCode, workflow.workflowInputSchema, workflow.workflowOutputSchema),
+                workflow.workflowImports && this.validateExternalImports(workflow.workflowImports),
+                this.validateActivityImportStatement(updatedWorkflowCode),
+                this.validateExternalActivityandMyWorkflowCompliance({
+                    ...workflow,
+                    workflowCode: updatedWorkflowCode
+                })
+            ]);
+
+            // Final compilation check
+            await this.tsValidationOb1Service.compileTypeScriptCheckForWorkflowExecution(
+                updatedWorkflowCode, 
+                mergedActivityCode
+            );
+
+            this.logger.debug('Workflow validation completed successfully.');
+            return {
+                workflowCode: updatedWorkflowCode,
+            };
+        } catch (error) {
+            this.logger.error('Workflow validation failed:', error);
+            throw new BadRequestException({
+                message: 'Workflow validation failed',
+                details: error.message,
+                error
+            });
         }
-        await this.validateActivityImportStatement(workflowCode);
-        // Validate Temporal activities names match the activityExternalName
-        //make sure the workflow function i.e default export is called myWorkflow
-        await this.validateExternalActivityandMyWorkflowCompliance(workflow);
-
-        this.logger.debug('Workflow validation completed successfully.');
     }
 
     /**
@@ -106,7 +215,6 @@ export class WorkflowTestingTypeScriptV1Service {
         await this.validateTypeScriptCodeStructure(workflowCode);
         this.logger.debug('Workflow code validated successfully.');
     }
-
 
     async validateExternalActivityandMyWorkflowCompliance(workflow: {
         workflowCode: string;
@@ -257,20 +365,22 @@ export class WorkflowTestingTypeScriptV1Service {
         // Collect proxy activity names
         findProxyActivities(sourceFile);
 
+        // DEPRECATED - This is no longer needed as we are using the activitiesUsedByWorkflowExternalNames[] to validate the proxyActivities
+        // WE FORCE CREATE THE PROXYACTIVITIES IN THE WORKFLOW CODE. 
         // Verify that proxyActivityNames are in activitiesUsedByWorkflowExternalNames[]
-        const invalidActivities = proxyActivityNames.filter(
-            (name) => !activitiesUsedByWorkflowExternalNames.includes(name),
-        );
-        if (invalidActivities.length > 0) {
-            throw new BadRequestException({
-                message: 'Workflow code validation failed',
-                errors: [
-                    `The following activities are not allowed or not listed in activitiesUsedByWorkflow: ${invalidActivities.join(
-                        ', ',
-                    )}.`,
-                ],
-            });
-        }
+        // const invalidActivities = proxyActivityNames.filter(
+        //     (name) => !activitiesUsedByWorkflowExternalNames.includes(name),
+        // );
+        // if (invalidActivities.length > 0) {
+        //     throw new BadRequestException({
+        //         message: 'Workflow code validation failed',
+        //         errors: [
+        //             `The following activities are not allowed or not listed in activitiesUsedByWorkflow: ${invalidActivities.join(
+        //                 ', ',
+        //             )}.`,
+        //         ],
+        //     });
+        // }
 
         // Find function calls in myWorkflow
         if (myWorkflowFunctionNode) {
@@ -308,7 +418,6 @@ export class WorkflowTestingTypeScriptV1Service {
             );
         }
     }
-
 
     /**
      * Validate the structure of the TypeScript workflowCode.

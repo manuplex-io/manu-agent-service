@@ -20,6 +20,8 @@ export namespace OB1Workflow {
         SYNC = 'sync',
         ASYNC = 'async',
         SCHEDULED = 'scheduled',
+        ASYNC_MULTIPLE = 'asyncMultiple',
+        ACTIVITY_AS_WORKFLOW = 'activityAsWorkflow',
     }
 
     export interface CreateWorkflow {
@@ -38,6 +40,15 @@ export namespace OB1Workflow {
         activitiesUsedByWorkflow: string[]; // Array of activity UUIDs
         consultantOrgShortName: string;
         personId: string;
+    }
+
+    export interface ValidateWorkflow extends CreateWorkflow {
+        subWorkflows?: OB1AgentWorkflows[];
+    }
+
+    // add more fields as needed for workflow validation response
+    export interface ValidateWorkflowRespose {
+        workflowCode: string;
     }
 
     export interface UpdateWorkflow {
@@ -191,7 +202,8 @@ export namespace OB1Workflow {
         };
         consultantOrgShortName: string;
         personId: string;
-        workflowExecutionType: 'sync' | 'async' | 'scheduled';
+        workflowExecutionType: 'sync' | 'async' | 'scheduled' | 'asyncMultiple';
+        workflowIds?: string[];
     }
 
     export interface WorkflowExecutionResponse {
@@ -206,9 +218,9 @@ export namespace OB1Workflow {
         };
     }
 
-    export interface WorkflowSubServiceExecuteRequest {
-        workflow: OB1AgentWorkflows;
-        workflowId: string;
+    export interface ActivitySubServiceExecuteRequest {
+        activityId: string;
+        workflowIds?: string[];
         workflowInputVariables: Record<string, any>;
         workflowENVInputVariables?: Record<string, any>;
         workflowScheduleConfig?: {
@@ -218,13 +230,54 @@ export namespace OB1Workflow {
             cronExpression?: string;
         };
         requestId: string;
-        requestMetadata: Record<string, any>;
-        workflowExecutionConfig: {
-            workflowQueueName: string
+        requestMetadata?: Record<string, any>;
+        workflowExecutionConfig?: {
+            workflowQueueName?: string
         };
         consultantOrgShortName: string;
         personId: string;
     }
+
+    export interface WorkflowSubServiceExecuteRequest {
+        workflow: OB1AgentWorkflows;
+        workflowId: string;
+        workflowIds?: string[];
+        workflowInputVariables: Record<string, any>;
+        workflowENVInputVariables?: Record<string, any>;
+        workflowScheduleConfig?: {
+            interval?: string;
+            startTime?: Date;
+            endTime?: Date;
+            cronExpression?: string;
+        };
+        requestId: string;
+        requestMetadata?: Record<string, any>;
+        workflowExecutionConfig?: {
+            workflowQueueName?: string
+        };
+        consultantOrgShortName: string;
+        personId: string;
+    }
+
+    export interface ActivityExecuteAsWorkflowRequest {
+        activityId: string;
+        workflowInputVariables: Record<string, any>;
+        workflowENVInputVariables?: Record<string, any>;
+        requestId: string;
+        requestMetadata?: Record<string, any>;
+        workflowExecutionConfig?: {
+            workflowQueueName?: string
+        };
+        consultantOrgShortName: string;
+        personId: string;
+    }
+
+    export interface ActivityToWorkflowRequest {
+        activityCode: string;
+        activityExternalName: string;
+        activityId: string;
+    }
+
     export interface WorkflowLoadingResponse {
         activityIds: Array<string>;
         workflowExternalName: string;
@@ -238,20 +291,52 @@ export namespace OB1Workflow {
         workflowCode: string;
         workflowExternalName: string;
     }
+    export interface WorkflowLoadingRequestV2 {
+        workflowCode: string;
+        workflowExternalName: string;
+        combinedWorkflows?: OB1AgentWorkflows[];
+        workflowToSubworkflowsMap?: Map<string, string[]>;
+    }
     export interface WorkflowValidationResponse {
         workflow: Record<string, any>;
         updatedWorkflowCode: string;
         updatedActivityCode: string;
         uniqueImports: Set<string>;
     }
+    export interface WorkflowValidationResponseV2 {
+        updatedWorkflowCode: string;
+    }
     export interface WorkflowValidationRequest {
         workflowId: string;
         workflowENVInputVariables?: Record<string, any>;
+    }
+    export interface WorkflowValidationRequestV2 {
+        mainWorkflow: OB1AgentWorkflows;
+        workflowENVInputVariables?: Record<string, any>;
+        workflowActivityCodeMap?: Map<string, string>;
+        workflowUniqueActivityNames?: Map<string, Set<string>>;
+        workflowActivityImportMap?: Map<string, Set<string>>;
+    }
+    export interface WorkflowValidationRequestMultiple extends WorkflowValidationRequest {
+        workflowIds: string[];
     }
 
     export interface WorkflowENVLoadingRequest {
         workflowExternalName: string;
         workflowENVInputVariables: Record<string, any>;
         temporalWorkflowId: string;
+    }
+
+    export interface TemporalSearchAttributes{
+        consultantOrgShortName: string[];
+        personId: string[];
+        userOrgId: string[];
+    }
+    export interface AllNestedWorkflowsResult {
+        allWorkflows: OB1AgentWorkflows[];
+        workflowToSubworkflowsMap: Map<string, string[]>;
+        workflowActivityCodeMap: Map<string, string>;
+        workflowActivityImportMap: Map<string, Set<string>>;
+        workflowUniqueActivityNames: Map<string, Set<string>>;
     }
 }

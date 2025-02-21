@@ -195,6 +195,10 @@ def lambda_handler(event, context):
     for key, value in env_vars.items():
         os.environ[key] = str(value)
 
+    # Log the workflow ID for traceability
+    workflow_id = os.environ.get('workflowId', 'Unknown')
+    print(f"Workflow ID: {workflow_id}")
+
     try:
         input_vars = event.get('input_variables', {})
         result = main(**input_vars)

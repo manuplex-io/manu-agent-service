@@ -10,7 +10,7 @@ import {
 } from 'src/aa-common/kafka-ob1/interfaces/ob1-message.interfaces';
 import { KafkaOb1ProcessingService } from './services/kafka-ob1-processing/kafka-ob1-processing.service';
 
-const DEFAULT_AS_REQUEST_TIMEOUT_MS = parseInt(process.env.DEFAULT_AS_REQUEST_TIMEOUT_MS || '75000', 10);
+const DEFAULT_AS_REQUEST_TIMEOUT_MS = parseInt(process.env.DEFAULT_AS_REQUEST_TIMEOUT_MS || '60000', 10);
 
 @Controller('kafka-ob1')
 export class KafkaOb1Controller implements OnModuleInit {

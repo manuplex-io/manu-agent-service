@@ -31,44 +31,219 @@
         public async validateWorkflowAndPrepareCodeForExecution(request: OB1Workflow.WorkflowValidationRequest): Promise<OB1Workflow.WorkflowValidationResponse> {
             try {
                 const { workflowId, workflowENVInputVariables } = request;
-                const workflow = await this.workflowRepository.findOne({
+                
+                // First, check Redis cache for the main workflow
+                const mainWorkflow = await this.workflowRepository.findOne({
+                    where: { workflowId: workflowId },
+                    relations: ['workflowCategory'],
+                });
+
+                if (!mainWorkflow) {
+                    throw new Error(`Workflow with ID ${workflowId} not found`);
+                }
+
+                const redisActivityKey = `${this.REDIS_WORKFLOW_BASE_KEY}:${mainWorkflow.workflowExternalName}:activityCode`;
+                const redisWorkflowKey = `${this.REDIS_WORKFLOW_BASE_KEY}:${mainWorkflow.workflowExternalName}`;
+                const redisImportKey = `${this.REDIS_WORKFLOW_BASE_KEY}:${mainWorkflow.workflowExternalName}:imports`;
+
+                const redisExistingActivityCode = await this.redisService.get(redisActivityKey);
+                const redisExistingWorkflowCode = await this.redisService.get(redisWorkflowKey);
+                const redisExistingImports = await this.redisService.getSet(redisImportKey);
+
+                if (redisExistingActivityCode && redisExistingWorkflowCode) {
+                    return {
+                        workflow: mainWorkflow,
+                        updatedWorkflowCode: redisExistingWorkflowCode,
+                        updatedActivityCode: redisExistingActivityCode,
+                        uniqueImports: new Set(redisExistingImports),
+                    };
+                }
+
+                // Track processed workflows to prevent infinite loops
+                const processedWorkflows = new Set<string>();
+                // Queue for workflows that need processing
+                const workflowQueue: string[] = [workflowId];
+                
+                let mergedActivityCode = '';
+                const uniqueImports = new Set<string>();
+                const uniqueActivityNames = new Set<string>();
+                const mergedENVinputSchema = {
+                    type: 'object',
+                    properties: {},
+                    required: [] as string[]
+                };
+
+                // Process workflows until queue is empty
+                while (workflowQueue.length > 0) {
+                    const currentWorkflowId = workflowQueue.shift()!;
+                    
+                    // Skip if already processed
+                    if (processedWorkflows.has(currentWorkflowId)) {
+                        continue;
+                    }
+                    
+                    const workflow = await this.workflowRepository.findOne({
+                        where: { workflowId: currentWorkflowId },
+                        relations: [
+                            'workflowCategory',
+                            'workflowActivities',
+                            'workflowActivities.activity',
+                            'workflowActivities.subWorkflow',
+                            'workflowActivities.subWorkflow.workflowActivities',
+                            'workflowActivities.subWorkflow.workflowActivities.activity'
+                        ],
+                    });
+
+                    if (!workflow) {
+                        throw new Error(`Workflow with ID ${currentWorkflowId} not found`);
+                    }
+
+                    // Merge ENV schema
+                    if (workflow.workflowENVInputSchema) {
+                        mergedENVinputSchema.properties = {
+                            ...mergedENVinputSchema.properties,
+                            ...workflow.workflowENVInputSchema.properties
+                        };
+                        if (workflow.workflowENVInputSchema.required) {
+                            mergedENVinputSchema.required = [
+                                ...new Set([
+                                    ...mergedENVinputSchema.required,
+                                    ...workflow.workflowENVInputSchema.required
+                                ])
+                            ];
+                        }
+                    }
+
+                    // Process activities and sub-workflows
+                    for (const workflowActivity of workflow.workflowActivities) {
+                        // Handle activity
+                        if (workflowActivity.activity) {
+                            const activityCode = this.tsValidationOb1Service.replaceFunctionNameAndDefaultForExecution({
+                                sourceCode: workflowActivity.activity.activityCode,
+                                newFunctionName: workflowActivity.activity.activityExternalName,
+                                functionType: OB1TSValidation.FunctionType.ACTIVITY
+                            });
+                            mergedActivityCode += activityCode + '\n';
+                            uniqueActivityNames.add(workflowActivity.activity.activityExternalName);
+
+                            // Merge activity ENV schema
+                            if (workflowActivity.activity.activityENVInputSchema) {
+                                mergedENVinputSchema.properties = {
+                                    ...mergedENVinputSchema.properties,
+                                    ...workflowActivity.activity.activityENVInputSchema.properties
+                                };
+                                if (workflowActivity.activity.activityENVInputSchema.required) {
+                                    mergedENVinputSchema.required = [
+                                        ...new Set([
+                                            ...mergedENVinputSchema.required,
+                                            ...workflowActivity.activity.activityENVInputSchema.required
+                                        ])
+                                    ];
+                                }
+                            }
+
+                            // Add activity imports
+                            if (workflowActivity.activity.activityImports) {
+                                workflowActivity.activity.activityImports.forEach(imp => uniqueImports.add(imp));
+                            }
+                        }
+
+                        // Queue sub-workflow for processing if it exists and hasn't been processed
+                        if (workflowActivity.subWorkflow && !processedWorkflows.has(workflowActivity.subWorkflow.workflowId)) {
+                            workflowQueue.push(workflowActivity.subWorkflow.workflowId);
+                        }
+                    }
+
+                    // Mark current workflow as processed
+                    processedWorkflows.add(currentWorkflowId);
+                }
+
+                // Process only the main workflow's code
+                let updatedWorkflowCode = this.tsValidationOb1Service.replaceFunctionNameAndDefaultForExecution({
+                    sourceCode: mainWorkflow.workflowCode,
+                    newFunctionName: mainWorkflow.workflowExternalName,
+                    functionType: OB1TSValidation.FunctionType.WORKFLOW
+                });
+                //This gets rid of the duplicated imports
+                updatedWorkflowCode = this.tsValidationOb1Service.validateAndConsolidateWorkflowImports(updatedWorkflowCode);
+                updatedWorkflowCode = this.tsValidationOb1Service.validateAndConsolidateActivityImports(updatedWorkflowCode, Array.from(uniqueActivityNames));
+
+                // Validate ENV input variables against the merged ENV schema
+                // const inputValidationResult = this.tsValidationOb1Service.validateInputAgainstInputSchema(
+                //     mergedENVinputSchema, 
+                //     workflowENVInputVariables
+                // );
+                
+                // Compile TypeScript for validation
+                await this.tsValidationOb1Service.compileTypeScriptCheckForWorkflowExecution(
+                    updatedWorkflowCode, 
+                    mergedActivityCode
+                );
+
+                return {
+                    workflow: mainWorkflow,
+                    updatedWorkflowCode: updatedWorkflowCode,
+                    updatedActivityCode: mergedActivityCode,
+                    uniqueImports: uniqueImports,
+                };
+            } catch (error) {
+                this.logger.error(`Failed to pass initial validation for workflow:\n${JSON.stringify(error, null, 2)}`);
+                throw new BadRequestException({
+                    message: 'Failed to pass initial validation for workflow',
+                    errorSuperDetails: { ...error },
+                });
+            }
+        }
+
+        // EXPERIMENTAL
+        public async validateMultipleWorkflowAndPrepareCodeForExecution(request: OB1Workflow.WorkflowValidationRequestMultiple): Promise<OB1Workflow.WorkflowValidationResponse> {
+            try {
+                const { workflowId, workflowENVInputVariables } = request;
+                const mainWorkflow = await this.workflowRepository.findOne({
                     where: { workflowId: workflowId },
                     relations: ['workflowCategory', 'workflowActivities', 'workflowActivities.activity'],
                 });
 
-                if (!workflow) {
+                const workflows = await this.workflowRepository.find({
+                    where: { workflowId: In(request.workflowIds) },
+                    relations: ['workflowCategory', 'workflowActivities', 'workflowActivities.activity'],
+                });
+
+                if (!mainWorkflow) {
                     throw new Error(`Workflow with ID ${workflowId} not found`);
                 }
 
                 let isCached : boolean = false;
-                const redisActivityKey = `${this.REDIS_WORKFLOW_BASE_KEY}:${workflow.workflowExternalName}:activityCode`;
-                const redisWorkflowKey = `${this.REDIS_WORKFLOW_BASE_KEY}:${workflow.workflowExternalName}`;
-                const redisImportKey = `${this.REDIS_WORKFLOW_BASE_KEY}:${workflow.workflowExternalName}:imports`;
+                const redisActivityKey = `${this.REDIS_WORKFLOW_BASE_KEY}:${mainWorkflow.workflowExternalName}:activityCode`;
+                const redisWorkflowKey = `${this.REDIS_WORKFLOW_BASE_KEY}:${mainWorkflow.workflowExternalName}`;
+                const redisImportKey = `${this.REDIS_WORKFLOW_BASE_KEY}:${mainWorkflow.workflowExternalName}:imports`;
 
                 const redisExistingActivityCode = await this.redisService.get(redisActivityKey);
                 const redisExistingWorkflowCode = await this.redisService.get(redisWorkflowKey);
                 const redisExistingImports = await this.redisService.getSet(redisImportKey);
 
                 let mergedCode : string = '';
+                let mergedWorkflowCode : string = '';
                 let mergedActivityCode : string = '';
                 let uniqueImports = new Set<string>();
                 let updatedWorkflowCode : string = '';
                 let mergedENVinputSchema = {
                     type: 'object',
                     properties: {
-                        ...workflow.workflowENVInputSchema.properties
+                        ...mainWorkflow.workflowENVInputSchema.properties
                     },
-                    required: [...(workflow.workflowENVInputSchema.required || [])]
+                    required: [...(mainWorkflow.workflowENVInputSchema.required || [])]
                 };
 
                 if(redisExistingActivityCode && redisExistingWorkflowCode)
                 {
                     isCached = true;
                     mergedCode = redisExistingActivityCode + redisExistingWorkflowCode;
+                    mergedWorkflowCode = redisExistingWorkflowCode;
                     mergedActivityCode = redisExistingActivityCode;
                     updatedWorkflowCode = redisExistingWorkflowCode;
                     uniqueImports = redisExistingImports ? new Set(redisExistingImports) : new Set<string>();
-                    workflow.workflowActivities.forEach(activity => {
+                    mainWorkflow.workflowActivities.forEach(activity => {
                         const activityENVSchema = activity.activity.activityENVInputSchema;
                         if (activityENVSchema) {
                             // Merge properties
@@ -90,12 +265,47 @@
                     }); 
                 }
                 else
-                {
+                {   
                     updatedWorkflowCode = this.tsValidationOb1Service.replaceFunctionNameAndDefaultForExecution({
-                        sourceCode: workflow.workflowCode, newFunctionName: workflow.workflowExternalName, functionType: OB1TSValidation.FunctionType.WORKFLOW
+                        sourceCode: mainWorkflow.workflowCode, newFunctionName: mainWorkflow.workflowExternalName, functionType: OB1TSValidation.FunctionType.WORKFLOW
                     });
-                    mergedCode = updatedWorkflowCode;
-                    workflow.workflowActivities.forEach(activity => {
+                    mergedWorkflowCode = updatedWorkflowCode;
+                    workflows.forEach(workflow => {
+                        mergedWorkflowCode += this.tsValidationOb1Service.replaceFunctionNameAndDefaultForExecution({
+                            sourceCode: workflow.workflowCode, newFunctionName: workflow.workflowExternalName, functionType: OB1TSValidation.FunctionType.WORKFLOW
+                        });
+                        workflow.workflowActivities.forEach(activity => {
+                            const activityENVSchema = activity.activity.activityENVInputSchema;
+                            const activityCode = activity.activity.activityCode;
+                            const updatedActivityCode = this.tsValidationOb1Service.replaceFunctionNameAndDefaultForExecution({
+                                sourceCode: activityCode, newFunctionName: activity.activity.activityExternalName, functionType: OB1TSValidation.FunctionType.ACTIVITY
+                            });
+                            mergedCode += updatedActivityCode + '\n';
+                            mergedActivityCode += updatedActivityCode + '\n';
+                            if (activityENVSchema) {
+                                // Merge properties
+                                mergedENVinputSchema.properties = {
+                                    ...mergedENVinputSchema.properties,
+                                    ...activityENVSchema.properties
+                                };
+                                
+                                // Merge required fields if they exist
+                                if (activityENVSchema.required) {
+                                    mergedENVinputSchema.required = [
+                                        ...new Set([
+                                            ...mergedENVinputSchema.required,
+                                                ...activityENVSchema.required
+                                        ])
+                                    ];
+                                }
+                            }
+    
+                            if (activity.activity.activityImports) {
+                                activity.activity.activityImports.forEach(imp => uniqueImports.add(imp));
+                            }
+                        });     
+                    })
+                    mainWorkflow.workflowActivities.forEach(activity => {
                         const activityENVSchema = activity.activity.activityENVInputSchema;
                         const activityCode = activity.activity.activityCode;
                         const updatedActivityCode = this.tsValidationOb1Service.replaceFunctionNameAndDefaultForExecution({
@@ -126,21 +336,20 @@
                         }
                     }); 
                 }
-                
-                this.logger.log(`mergedCode: ${mergedCode}`);
-                this.logger.log(`mergedActivityCode: ${mergedActivityCode}`);
-                this.logger.log(`uniqueImports: ${uniqueImports}`);
-                this.logger.log(`mergedENVinputSchema: ${JSON.stringify(mergedENVinputSchema, null, 2)}`);
-                this.logger.log(`workflowENVInputVariables: ${JSON.stringify(workflowENVInputVariables, null, 2)}`);
+                updatedWorkflowCode = this.tsValidationOb1Service.validateAndConsolidateWorkflowImports(mergedWorkflowCode);
                 // Validate ENV input variables against the merged ENV schema
-                // Each will throw error if not valid
-                // const extractedENVVariables = this.tsValidationOb1Service.extractEnvironmentVariables(mergedCode, 'workflow');
-                // const keyValidationResult = this.tsValidationOb1Service.validateInputKeysExistInSchema(mergedENVinputSchema, extractedENVVariables, 'mergedWorkflowAndActivityENVinputSchema');
+                // const inputValidationResult = this.tsValidationOb1Service.validateInputAgainstInputSchema(mergedENVinputSchema, workflowENVInputVariables);
+                
+                
+                // Compile TypeScript for validation
+                // await this.tsValidationOb1Service.compileTypeScriptCheckForWorkflowExecution(updatedWorkflowCode, mergedActivityCode);                
+                
+                
+                // Validate ENV input variables against the merged ENV schema
+                // // Merge ENV schemas from all activities
 
-                const inputValidationResult = this.tsValidationOb1Service.validateInputAgainstInputSchema(mergedENVinputSchema, workflowENVInputVariables);
-                // Merge ENV schemas from all activities
                 const response: OB1Workflow.WorkflowValidationResponse = {
-                    workflow: workflow,
+                    workflow: mainWorkflow,
                     updatedWorkflowCode: updatedWorkflowCode,
                     updatedActivityCode: mergedActivityCode,
                     uniqueImports: uniqueImports,

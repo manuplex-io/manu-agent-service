@@ -65,6 +65,22 @@ export class ToolCRUDV1 {
                     return await this.toolsManagementService.getTool(routeParams.toolId);
                 }
 
+                case `${CRUDOperationName.POST}-${CRUDToolRoute.GET_TOOL_IDS_BY_EXTERNAL_NAMES}`: {
+                    const validatedBody = await this.validationPipe.transform(
+                        CRUDBodyWithConsultantPayload,
+                        { metatype: OB1ToolDto.GetToolIdsByExternalNamesDto, type: 'body' }
+                    );
+                    return await this.toolsManagementService.getToolIdsByExternalNames(CRUDBody.externalNames);
+                }
+
+                case `${CRUDOperationName.POST}-${CRUDToolRoute.GET_TOOL_FIELDS}`: {
+                    const validatedBody = await this.validationPipe.transform(
+                        CRUDBodyWithConsultantPayload,
+                        { metatype: OB1ToolDto.GetToolFieldsDto, type: 'body' }
+                    );
+                    return await this.toolsManagementService.getToolFields(validatedBody);
+                }
+
                 // DEPRECATED: Replaced with GET TOOL
                 // case `${CRUDOperationName.GET}-${CRUDToolRoute.GET_FULL_TOOL}`: {
                 //     if (!routeParams?.toolId) {

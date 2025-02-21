@@ -27,15 +27,21 @@ export const CRUDPromptRoute = {
     // Prompt execution endpoints
     EXECUTE_WITH_USER_PROMPT: 'prompts/:promptId/executeWithUserPrompt',
     EXECUTE_WITHOUT_USER_PROMPT: 'prompts/:promptId/executeWithoutUserPrompt',
+    EXECUTE_WITH_USER_PROMPT_ASYNC: 'prompts/:promptId/executeWithUserPromptAsync',
+    EXECUTE_WITHOUT_USER_PROMPT_ASYNC: 'prompts/:promptId/executeWithoutUserPromptAsync',
     GET_EXECUTION_LOGS: 'prompts/:promptId/logs'
 } as const;
 
 export type CRUDPromptRouteType = typeof CRUDPromptRoute[keyof typeof CRUDPromptRoute];
 
+
 export const CRUDToolRoute = {
     // Tool endpoints
     LIST_TOOLS: 'tools',
     GET_TOOL: 'tools/:id',
+    GET_TOOL_EXTERNAL_NAME: 'tools/externalName/:externalName',
+    GET_TOOL_IDS_BY_EXTERNAL_NAMES: 'tools/externalNames',
+    GET_TOOL_FIELDS: 'tools/fields',
     // GET_FULL_TOOL: 'tools/fullDetails/:id',
     CREATE_TOOL: 'tools',
     UPDATE_TOOL: 'tools/:id',
@@ -95,21 +101,44 @@ export const CRUDWorkflowRoute = {
     TEST_WORKFLOW: 'workflows/test/:workflowId',
     VALIDATE_WORKFLOW_ONLY: 'workflows/validateOnly/:workflowId',
 
-    // Workflow execution endpoints
+    // Workflow execution V1 endpoints
     EXECUTE_WORKFLOW: 'workflows/execute/:workflowId',
     EXECUTE_WORKFLOW_SYNC: 'workflows/executeSync/:workflowId',
     EXECUTE_WORKFLOW_ASYNC: 'workflows/executeAsync/:workflowId',
     EXECUTE_WORKFLOW_SCHEDULED: 'workflows/executeScheduled/:workflowId',
+    EXECUTE_WORKFLOW_ASYNC_MULTIPLE: 'workflows/executeAsyncMultiple/:workflowId',
+
     GET_WORKFLOW_EXECUTION_STATUS: 'workflows/executionStatus/:workflowExecutionId',
-    GET_WORKFLOW_SCHEDULE_STATUS: 'workflows/scheduleStatus/:workflowScheduleId',
+    GET_WORKFLOW_SCHEDULE_STATUS: 'workflows/scheduleStatus/:temporalWorkflowId',
+    GET_WORKFLOW_CODE: 'workflows/getCode',
+
+    // Workflow execution V2 endpoints
+    EXECUTE_WORKFLOW_V2: 'workflows/executeV2/:workflowId',
+    EXECUTE_WORKFLOW_SYNC_V2: 'workflows/executeSyncV2/:workflowId',
+    EXECUTE_WORKFLOW_ASYNC_V2: 'workflows/executeAsyncV2/:workflowId',
+    EXECUTE_WORKFLOW_SCHEDULED_V2: 'workflows/executeScheduledV2/:workflowId',
+    EXECUTE_WORKFLOW_ASYNC_MULTIPLE_V2: 'workflows/executeAsyncMultipleV2/:workflowId',
+    EXECUTE_ACTIVITY_AS_WORKFLOW_V2: 'workflows/executeActivityAsWorkflowV2/:activityId',
+
+    GET_WORKFLOW_EXECUTION_STATUS_V2: 'workflows/executionStatusV2/:workflowExecutionId',
+    GET_WORKFLOW_SCHEDULE_STATUS_V2: 'workflows/scheduleStatusV2/:temporalWorkflowId',
+    GET_WORKFLOW_CODE_V2: 'workflows/getCodeV2',
+
 } as const;
 
 export type CRUDWorkflowRouteType = typeof CRUDWorkflowRoute[keyof typeof CRUDWorkflowRoute];
 
+export const CRUDRAGRoute = {
+    // Workflow endpoints
+    CREATE_DATASET: 'rags',
+} as const;
+
+export type CRUDRAGRouteType = typeof CRUDRAGRoute[keyof typeof CRUDRAGRoute];
 
 export const CRUDLLMRoute = {
     // Workflow endpoints
     GENERATE_LLM_RESPONSE: 'llm',
+    GENERATE_LLM_RESPONSE_WITH_RAG: 'llm/rag',
 } as const;
 
 export type CRUDLLMRouteType = typeof CRUDLLMRoute[keyof typeof CRUDLLMRoute];
@@ -158,8 +187,8 @@ export class CRUDFunctionInput {
     CRUDOperationName: CRUDOperationNameType;
 
     @IsString()
-    @IsEnum([...Object.values(CRUDPromptRoute), ...Object.values(CRUDToolRoute), ...Object.values(CRUDActivityRoute), ...Object.values(CRUDWorkflowRoute), ...Object.values(CRUDLLMRoute)]) // Combine routes
-    CRUDRoute: CRUDPromptRouteType | CRUDToolRouteType | CRUDActivityRouteType | CRUDWorkflowRouteType | CRUDLLMRouteType;
+    @IsEnum([...Object.values(CRUDPromptRoute), ...Object.values(CRUDToolRoute), ...Object.values(CRUDActivityRoute), ...Object.values(CRUDWorkflowRoute), ...Object.values(CRUDLLMRoute), ...Object.values(CRUDRAGRoute)]) // Combine routes
+    CRUDRoute: CRUDPromptRouteType | CRUDToolRouteType | CRUDActivityRouteType | CRUDWorkflowRouteType | CRUDLLMRouteType | CRUDRAGRouteType;
 
     @IsOptional()
     @IsObject()
@@ -193,8 +222,4 @@ export class CRUDFunctionInputExtended extends CRUDFunctionInput {
     // tracing: OB1LLM.promptTracing;
 
     requestId: string;
-
-    @IsOptional()
-    @IsObject()
-    requestMetadata?: Record<string, any>;
 }

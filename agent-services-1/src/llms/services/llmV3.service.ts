@@ -24,9 +24,20 @@ export class LLMV3Service {
             // It will have another switch statement to determine which provider to use and navigate to the appropriate service
             switch (request.provider) {
                 case OB1LLMV3Dto.ProviderType.OPENAI:
-                    // Place to build OPEN AI interface
-                    // Validation for OpenAI request
-                    const validatedInput = await this.validateInput(request, OB1OpenAIDto.OB1OpenAILLMRequestDto, OB1LLMV3Dto.ProviderType.OPENAI) as OB1OpenAIDto.OB1OpenAILLMRequestDto;
+                    // Convert string userPrompt to proper object format
+                    if (typeof request.llmRequest.userPrompt === 'string') {
+                        request.llmRequest.userPrompt = [{
+                            text: request.llmRequest.userPrompt,
+                            data: request.llmRequest.userPrompt
+                        }];
+                    }
+                    
+                    const validatedInput = await this.validateInput(
+                        request, 
+                        OB1OpenAIDto.OB1OpenAILLMRequestDto, 
+                        OB1LLMV3Dto.ProviderType.OPENAI
+                    ) as OB1OpenAIDto.OB1OpenAILLMRequestDto;
+                    
                     return await this.openAIV1Service.generateAnyResponse(validatedInput);
                 default:
                     throw new BadRequestException(`Unsupported provider: ${request.provider}`);
@@ -39,6 +50,39 @@ export class LLMV3Service {
             });
         }
     }
+
+    // async generateAnyLLMResponseWithRAG(request: OB1LLMV3Dto.OB1GenericLLMRequestDto): Promise<any> {
+    //     try {
+    //         // LLM V3 Service will be used to generate responses for both OpenAI and Anthropic
+    //         // It will have another switch statement to determine which provider to use and navigate to the appropriate service
+    //         switch (request.provider) {
+    //             case OB1LLMV3Dto.ProviderType.OPENAI:
+    //                 // Convert string userPrompt to proper object format
+    //                 if (typeof request.llmRequest.userPrompt === 'string') {
+    //                     request.llmRequest.userPrompt = [{
+    //                         text: request.llmRequest.userPrompt,
+    //                         data: request.llmRequest.userPrompt
+    //                     }];
+    //                 }
+                    
+    //                 const validatedInput = await this.validateInput(
+    //                     request, 
+    //                     OB1OpenAIDto.OB1OpenAILLMRequestDto, 
+    //                     OB1LLMV3Dto.ProviderType.OPENAI
+    //                 ) as OB1OpenAIDto.OB1OpenAILLMRequestDto;
+                    
+    //                 return await this.openAIV1Service.generateAnyResponseWithRAG(validatedInput);
+    //             default:
+    //                 throw new BadRequestException(`Unsupported provider: ${request.provider}`);
+    //         }
+    //     } catch (error) {
+    //         this.logger.error(`Error generating LLM response: ${error.message}`, error.stack);
+    //         throw new BadRequestException({
+    //             message: 'Failed to generate LLM response',
+    //             errorSuperDetails: { ...error },
+    //         });
+    //     }
+    // }
 
     private async validateInput(input: any, metatype: any, provider: OB1LLMV3Dto.ProviderType): Promise<any> {
         try {
