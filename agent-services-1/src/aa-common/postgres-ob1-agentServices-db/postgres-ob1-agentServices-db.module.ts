@@ -66,7 +66,8 @@ import { OB1AgentActivityExecution } from '../../activity/entities/ob1-agent-act
             OB1AgentActivityCategory,
             OB1AgentActivityExecution,
           ], // Add the entities relevant to this DB
-          synchronize: isLocalEnv || isDevEnv, // Synchronize only in 'local', 'localhost', or 'dev' environments
+          // synchronize: isLocalEnv || isDevEnv, // Synchronize only in 'local', 'localhost', or 'dev' environments
+          synchronize: true, // Synchronize only in 'local', 'localhost', or 'dev' environments
         };
       },
       dataSourceFactory: async (options) => {
