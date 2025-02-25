@@ -487,7 +487,8 @@ export class WorkflowExecutionTypeScriptV1Service {
                 scheduleId: temporalScheduleId,
                 spec: {
                     // calendars: [calendarSpec],
-                    cronExpressions: ["0 */5 * * * * *"], // Run every 5 minutes
+                    // cronExpressions: ["0 */1 * * * * *"], // Run every 5 minutes
+                    cronExpressions: ["0 0 17 * * * *"], // Run every day at 5 PM
 
                 },
                 action: {
@@ -497,9 +498,9 @@ export class WorkflowExecutionTypeScriptV1Service {
                     args: [input, config],
                     searchAttributes: {...temporalSearchAttributes}
                 },
-                state: {
-                    remainingActions: 1
-                }
+                // state: {
+                //     remainingActions: 1
+                // }
             });
 
             response.workflowExecutionResult.isStarted = true;
