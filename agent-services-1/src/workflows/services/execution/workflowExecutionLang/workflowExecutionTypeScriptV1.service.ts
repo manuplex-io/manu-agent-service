@@ -488,7 +488,7 @@ export class WorkflowExecutionTypeScriptV1Service {
                 spec: {
                     // calendars: [calendarSpec],
                     // cronExpressions: ["0 */1 * * * * *"], // Run every 5 minutes
-                    cronExpressions: ["0 0 17 * * * *"], // Run every day at 5 PM
+                    cronExpressions: ["0 0 7 * * * *", "0 45 11 * * * *"], // Run every day at 5:10 PM
 
                 },
                 action: {
