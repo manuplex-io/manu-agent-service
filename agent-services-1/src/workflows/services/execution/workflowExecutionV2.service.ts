@@ -49,22 +49,22 @@ export class WorkflowExecutionV2Service {
             ...request,
         }
         switch (request.workflowExecutionType) {
-            case OB1Workflow.WorkflowExecutionType.SYNC:
-                switch (workflow.workflowLang) {
-                    case OB1Workflow.WorkflowLang.TYPESCRIPT:
-                        return this.workflowExecutionTypeScriptV2Service.executeWorkflowSync(subServiceRequest);
+            // case OB1Workflow.WorkflowExecutionType.SYNC:
+            //     switch (workflow.workflowLang) {
+            //         case OB1Workflow.WorkflowLang.TYPESCRIPT:
+            //             return this.workflowExecutionTypeScriptV2Service.executeWorkflowSync(subServiceRequest);
         
-                    default:
-                        throw new BadRequestException(`Unsupported workflowLang: ${workflow.workflowLang}`);
-                }
-            case OB1Workflow.WorkflowExecutionType.ASYNC:
-                switch (workflow.workflowLang) {
-                    case OB1Workflow.WorkflowLang.TYPESCRIPT:
-                        return this.workflowExecutionTypeScriptV2Service.executeWorkflowAsync(subServiceRequest);
+            //         default:
+            //             throw new BadRequestException(`Unsupported workflowLang: ${workflow.workflowLang}`);
+            //     }
+            // case OB1Workflow.WorkflowExecutionType.ASYNC:
+            //     switch (workflow.workflowLang) {
+            //         case OB1Workflow.WorkflowLang.TYPESCRIPT:
+            //             return this.workflowExecutionTypeScriptV2Service.executeWorkflowAsync(subServiceRequest);
         
-                    default:
-                        throw new BadRequestException(`Unsupported workflowLang: ${workflow.workflowLang}`);
-                }
+            //         default:
+            //             throw new BadRequestException(`Unsupported workflowLang: ${workflow.workflowLang}`);
+            //     }
             case OB1Workflow.WorkflowExecutionType.SCHEDULED:
                 switch (workflow.workflowLang) {
                     case OB1Workflow.WorkflowLang.TYPESCRIPT:
