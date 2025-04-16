@@ -45,6 +45,14 @@ services:
       echo \"SERVICE_ID: $$SERVICE_ID\" &&
       node --trace-warnings dist/main.js"
     deploy:
+      replicas: 3
+      placement:
+        max_replicas_per_node: 1
+      resources:
+        limits:
+          memory: 600m
+        reservations:
+          memory: 200m
       labels:
         - "register-consul.enable=true"
         - "register-consul.service-name=manu-agent-service"

@@ -24,320 +24,320 @@ export class WorkflowExecutionTypeScriptV2Service {
         private readonly tsValidationOb1Service: TSValidationOb1Service,
         private readonly activityLoadingV2Service: ActivityLoadingV2Service,
     ) {
-        this.initializeClient();
+        // this.initializeClient();
     }
 
-    async initializeClient() {
-        try {
-            const connection = await Connection.connect({
-                address: process.env.TEMPORAL_ADDRESS,
-            });
+    // async initializeClient() {
+    //     try {
+    //         const connection = await Connection.connect({
+    //             address: process.env.TEMPORAL_ADDRESS,
+    //         });
 
-            this.logger.log('Temporal connection established successfully');
+    //         this.logger.log('Temporal connection established successfully');
 
-            this.TemporalClient = new WorkflowClient({
-                connection,
-                namespace: process.env.TEMPORAL_NAMESPACE,
-            });
+    //         this.TemporalClient = new WorkflowClient({
+    //             connection,
+    //             namespace: process.env.TEMPORAL_NAMESPACE,
+    //         });
 
-            this.TemporalScheduleClient = new ScheduleClient({
-                connection,
-                namespace: process.env.TEMPORAL_NAMESPACE,
-            });
+    //         this.TemporalScheduleClient = new ScheduleClient({
+    //             connection,
+    //             namespace: process.env.TEMPORAL_NAMESPACE,
+    //         });
 
-            this.logger.log(`Temporal client initialized with namespace: ${process.env.TEMPORAL_NAMESPACE}`);
-        } catch (error) {
-            this.logger.error(`Failed to establish Temporal connection: ${error.message}`);
-            throw error;
-        }
-    }
+    //         this.logger.log(`Temporal client initialized with namespace: ${process.env.TEMPORAL_NAMESPACE}`);
+    //     } catch (error) {
+    //         this.logger.error(`Failed to establish Temporal connection: ${error.message}`);
+    //         throw error;
+    //     }
+    // }
 
     /**
      * Execute the workflow with the provided workflowInput.
      */
-    async executeWorkflow(
-        request: OB1Workflow.WorkflowSubServiceExecuteRequest,
-    ): Promise<OB1Workflow.WorkflowExecutionResponse> {
-        const { workflow, workflowInputVariables, workflowENVInputVariables, workflowExecutionConfig } = request;
+    // async executeWorkflow(
+    //     request: OB1Workflow.WorkflowSubServiceExecuteRequest,
+    // ): Promise<OB1Workflow.WorkflowExecutionResponse> {
+    //     const { workflow, workflowInputVariables, workflowENVInputVariables, workflowExecutionConfig } = request;
 
-        // isLoaded = await workflowLoadingService.loadANYWorkflow(workflow.workflowId, workflow.workflowLang);
+    //     // isLoaded = await workflowLoadingService.loadANYWorkflow(workflow.workflowId, workflow.workflowLang);
 
-        // Initialize response object
-        const response: OB1Workflow.WorkflowExecutionResponse = {
-            workflowExecutionResult: {
-                isStarted: false,
-                errors: [],
-                workflowQueueName: '',
-                result: null,
-                status: 'UNKNOWN'
-            },
-        };
+    //     // Initialize response object
+    //     const response: OB1Workflow.WorkflowExecutionResponse = {
+    //         workflowExecutionResult: {
+    //             isStarted: false,
+    //             errors: [],
+    //             workflowQueueName: '',
+    //             result: null,
+    //             status: 'UNKNOWN'
+    //         },
+    //     };
 
-        try {
-            const workflowArgs = this.tsValidationOb1Service.validateInputAgainstInputSchema(workflow.workflowInputSchema, workflowInputVariables);
-            const workflowExternalName = workflow.workflowExternalName;
-            const allWorkflowsResult = await this.collectWorkflowHierarchy(workflow.workflowId);
-            // Workflow Validation and Code Preparation result contains all necessary data for workflow execution
-            const {allWorkflows, workflowToSubworkflowsMap, workflowActivityCodeMap, workflowActivityImportMap, workflowUniqueActivityNames} = allWorkflowsResult;
-            for (const workflow of allWorkflows) {
-                const workflowValidationResponse = await this.workflowLoadingV2Service.validateWorkflowAndPrepareCodeForExecution({
-                    mainWorkflow: workflow,
-                    workflowENVInputVariables: workflowENVInputVariables,
-                    workflowActivityCodeMap,
-                    workflowUniqueActivityNames,
-                });
-                // Load the workflow, activity and ENV to Redis
-                const workflowLoadingResponse = await this.workflowLoadingV2Service.loadAnyWorkflowToRedis({
-                    workflowCode: workflowValidationResponse.updatedWorkflowCode,
-                    workflowExternalName: workflow.workflowExternalName,
-                });
+    //     try {
+    //         const workflowArgs = this.tsValidationOb1Service.validateInputAgainstInputSchema(workflow.workflowInputSchema, workflowInputVariables);
+    //         const workflowExternalName = workflow.workflowExternalName;
+    //         const allWorkflowsResult = await this.collectWorkflowHierarchy(workflow.workflowId);
+    //         // Workflow Validation and Code Preparation result contains all necessary data for workflow execution
+    //         const {allWorkflows, workflowToSubworkflowsMap, workflowActivityCodeMap, workflowActivityImportMap, workflowUniqueActivityNames} = allWorkflowsResult;
+    //         for (const workflow of allWorkflows) {
+    //             const workflowValidationResponse = await this.workflowLoadingV2Service.validateWorkflowAndPrepareCodeForExecution({
+    //                 mainWorkflow: workflow,
+    //                 workflowENVInputVariables: workflowENVInputVariables,
+    //                 workflowActivityCodeMap,
+    //                 workflowUniqueActivityNames,
+    //             });
+    //             // Load the workflow, activity and ENV to Redis
+    //             const workflowLoadingResponse = await this.workflowLoadingV2Service.loadAnyWorkflowToRedis({
+    //                 workflowCode: workflowValidationResponse.updatedWorkflowCode,
+    //                 workflowExternalName: workflow.workflowExternalName,
+    //             });
     
-                const activityLoadingResponse = await this.activityLoadingV2Service.loadAnyActivityToRedis({
-                    workflowExternalName: workflow.workflowExternalName,
-                    workflowId: workflow.workflowId,
-                    workflowActivityCodeMap: workflowActivityCodeMap,
-                    workflowActivityImportMap:workflowActivityImportMap,
-                });
-            }
-            // await this.workflowLoadingV1Service.loadAnyENVToRedis({
-            //     workflowExternalName: workflowExternalName,
-            //     workflowENVInputVariables: workflowENVInputVariables,
-            //     temporalWorkflowId: request.requestId || `workflow-${Date.now()}`,
-            // });
+    //             const activityLoadingResponse = await this.activityLoadingV2Service.loadAnyActivityToRedis({
+    //                 workflowExternalName: workflow.workflowExternalName,
+    //                 workflowId: workflow.workflowId,
+    //                 workflowActivityCodeMap: workflowActivityCodeMap,
+    //                 workflowActivityImportMap:workflowActivityImportMap,
+    //             });
+    //         }
+    //         // await this.workflowLoadingV1Service.loadAnyENVToRedis({
+    //         //     workflowExternalName: workflowExternalName,
+    //         //     workflowENVInputVariables: workflowENVInputVariables,
+    //         //     temporalWorkflowId: request.requestId || `workflow-${Date.now()}`,
+    //         // });
 
-            this.logger.debug(`Workflow function: ${workflowExternalName}`);
-            // Start the workflow
+    //         this.logger.debug(`Workflow function: ${workflowExternalName}`);
+    //         // Start the workflow
 
-            const input = {
-                ...workflowInputVariables,
-            };
+    //         const input = {
+    //             ...workflowInputVariables,
+    //         };
 
-            const config = {
-                ...workflowExecutionConfig,
-                workflowENVInputVariables,
-            };
+    //         const config = {
+    //             ...workflowExecutionConfig,
+    //             workflowENVInputVariables,
+    //         };
 
-            const temporalSearchAttributes = this.convertToTemporalSearchAttributes(request);
+    //         const temporalSearchAttributes = this.convertToTemporalSearchAttributes(request);
 
-            //To-do
-            //How and where do we start the workflow?
-            const handle = await this.TemporalClient.start(workflowExternalName, {
-                taskQueue: request.workflowExecutionConfig?.workflowQueueName || 'agentprocess_QUEUE',
-                workflowId: request.requestId || `workflow-${Date.now()}`,
-                searchAttributes: {...temporalSearchAttributes},
-                args: [input, config],
-            });
+    //         //To-do
+    //         //How and where do we start the workflow?
+    //         const handle = await this.TemporalClient.start(workflowExternalName, {
+    //             taskQueue: request.workflowExecutionConfig?.workflowQueueName || 'agentprocess_QUEUE',
+    //             workflowId: request.requestId || `workflow-${Date.now()}`,
+    //             searchAttributes: {...temporalSearchAttributes},
+    //             args: [input, config],
+    //         });
 
-            // Wait for the workflow to complete and get the result
-            const result = await handle.result();
+    //         // Wait for the workflow to complete and get the result
+    //         const result = await handle.result();
 
-            // Update response on success
-            response.workflowExecutionResult.isStarted = true;
-            response.workflowExecutionResult.result = result;
-            response.workflowExecutionResult.workflowQueueName = handle.workflowId;
-            response.workflowExecutionResult.status = 'COMPLETED';
-            this.logger.debug(`Workflow completed successfully with result: ${result}`);
-            return response;
-        } catch (error) {
-            // Handle errors
-            this.logger.error(`Failed to execute workflow: ${error.message}`);
-            // response.workflowExecutionResult.errors.push(error.message);
-            // response.workflowExecutionResult.status = 'FAILED';
-            throw new BadRequestException({
-                message: 'Failed to execute workflow',
-                errorSuperDetails: { ...error },
-            });
-        }
+    //         // Update response on success
+    //         response.workflowExecutionResult.isStarted = true;
+    //         response.workflowExecutionResult.result = result;
+    //         response.workflowExecutionResult.workflowQueueName = handle.workflowId;
+    //         response.workflowExecutionResult.status = 'COMPLETED';
+    //         this.logger.debug(`Workflow completed successfully with result: ${result}`);
+    //         return response;
+    //     } catch (error) {
+    //         // Handle errors
+    //         this.logger.error(`Failed to execute workflow: ${error.message}`);
+    //         // response.workflowExecutionResult.errors.push(error.message);
+    //         // response.workflowExecutionResult.status = 'FAILED';
+    //         throw new BadRequestException({
+    //             message: 'Failed to execute workflow',
+    //             errorSuperDetails: { ...error },
+    //         });
+    //     }
 
-    }
+    // }
 
     /**
      * Execute the workflow with the provided workflowInput.
      */
-    async executeWorkflowSync(
-        request: OB1Workflow.WorkflowSubServiceExecuteRequest,
-    ): Promise<OB1Workflow.WorkflowExecutionResponse> {
-        const { workflow, workflowInputVariables, workflowENVInputVariables, workflowExecutionConfig } = request;
+    // async executeWorkflowSync(
+    //     request: OB1Workflow.WorkflowSubServiceExecuteRequest,
+    // ): Promise<OB1Workflow.WorkflowExecutionResponse> {
+    //     const { workflow, workflowInputVariables, workflowENVInputVariables, workflowExecutionConfig } = request;
 
-        // isLoaded = await workflowLoadingService.loadANYWorkflow(workflow.workflowId, workflow.workflowLang);
+    //     // isLoaded = await workflowLoadingService.loadANYWorkflow(workflow.workflowId, workflow.workflowLang);
 
-        // Initialize response object
-        const response: OB1Workflow.WorkflowExecutionResponse = {
-            workflowExecutionResult: {
-                isStarted: false,
-                errors: [],
-                workflowQueueName: '',
-                result: null,
-                status: 'UNKNOWN'
-            },
-        };
+    //     // Initialize response object
+    //     const response: OB1Workflow.WorkflowExecutionResponse = {
+    //         workflowExecutionResult: {
+    //             isStarted: false,
+    //             errors: [],
+    //             workflowQueueName: '',
+    //             result: null,
+    //             status: 'UNKNOWN'
+    //         },
+    //     };
 
-        try {
-            // Validate input and get workflow arguments
-            const workflowArgs = this.tsValidationOb1Service.validateInputAgainstInputSchema(workflow.workflowInputSchema, workflowInputVariables);
-            const workflowExternalName = workflow.workflowExternalName;
-            const allWorkflowsResult = await this.collectWorkflowHierarchy(workflow.workflowId);
-            // Workflow Validation and Code Preparation result contains all necessary data for workflow execution
-            const {allWorkflows, workflowToSubworkflowsMap, workflowActivityCodeMap, workflowActivityImportMap, workflowUniqueActivityNames} = allWorkflowsResult;
-            for (const workflow of allWorkflows) {
-                const workflowValidationResponse = await this.workflowLoadingV2Service.validateWorkflowAndPrepareCodeForExecution({
-                    mainWorkflow: workflow,
-                    workflowENVInputVariables: workflowENVInputVariables,
-                    workflowActivityCodeMap,
-                    workflowUniqueActivityNames,
-                });
-                // Load the workflow, activity and ENV to Redis
-                const workflowLoadingResponse = await this.workflowLoadingV2Service.loadAnyWorkflowToRedis({
-                    workflowCode: workflowValidationResponse.updatedWorkflowCode,
-                    workflowExternalName: workflow.workflowExternalName,
-                });
+    //     try {
+    //         // Validate input and get workflow arguments
+    //         const workflowArgs = this.tsValidationOb1Service.validateInputAgainstInputSchema(workflow.workflowInputSchema, workflowInputVariables);
+    //         const workflowExternalName = workflow.workflowExternalName;
+    //         const allWorkflowsResult = await this.collectWorkflowHierarchy(workflow.workflowId);
+    //         // Workflow Validation and Code Preparation result contains all necessary data for workflow execution
+    //         const {allWorkflows, workflowToSubworkflowsMap, workflowActivityCodeMap, workflowActivityImportMap, workflowUniqueActivityNames} = allWorkflowsResult;
+    //         for (const workflow of allWorkflows) {
+    //             const workflowValidationResponse = await this.workflowLoadingV2Service.validateWorkflowAndPrepareCodeForExecution({
+    //                 mainWorkflow: workflow,
+    //                 workflowENVInputVariables: workflowENVInputVariables,
+    //                 workflowActivityCodeMap,
+    //                 workflowUniqueActivityNames,
+    //             });
+    //             // Load the workflow, activity and ENV to Redis
+    //             const workflowLoadingResponse = await this.workflowLoadingV2Service.loadAnyWorkflowToRedis({
+    //                 workflowCode: workflowValidationResponse.updatedWorkflowCode,
+    //                 workflowExternalName: workflow.workflowExternalName,
+    //             });
 
-                const activityLoadingResponse = await this.activityLoadingV2Service.loadAnyActivityToRedis({
-                    workflowExternalName: workflow.workflowExternalName,
-                    workflowId: workflow.workflowId,
-                    workflowActivityCodeMap: workflowActivityCodeMap,
-                    workflowActivityImportMap:workflowActivityImportMap,
-                });
-            }
-            // await this.workflowLoadingV1Service.loadAnyENVToRedis({
-            //     workflowExternalName: workflowExternalName,
-            //     workflowENVInputVariables: workflowENVInputVariables,
-            //     temporalWorkflowId: request.requestId || `workflow-${Date.now()}`,
-            // });
+    //             const activityLoadingResponse = await this.activityLoadingV2Service.loadAnyActivityToRedis({
+    //                 workflowExternalName: workflow.workflowExternalName,
+    //                 workflowId: workflow.workflowId,
+    //                 workflowActivityCodeMap: workflowActivityCodeMap,
+    //                 workflowActivityImportMap:workflowActivityImportMap,
+    //             });
+    //         }
+    //         // await this.workflowLoadingV1Service.loadAnyENVToRedis({
+    //         //     workflowExternalName: workflowExternalName,
+    //         //     workflowENVInputVariables: workflowENVInputVariables,
+    //         //     temporalWorkflowId: request.requestId || `workflow-${Date.now()}`,
+    //         // });
 
-            const input = {
-                ...workflowInputVariables,
-            };
+    //         const input = {
+    //             ...workflowInputVariables,
+    //         };
 
-            const config = {
-                ...workflowExecutionConfig,
-                workflowENVInputVariables,
-            };
+    //         const config = {
+    //             ...workflowExecutionConfig,
+    //             workflowENVInputVariables,
+    //         };
 
-            this.logger.debug(`Workflow function: ${workflowExternalName}`);
-            this.logger.debug(`Workflow args: ${JSON.stringify(workflowInputVariables, null, 2)}`);
-            // Start the workflow
-            const temporalSearchAttributes = this.convertToTemporalSearchAttributes(request);
-            const handle = await this.TemporalClient.start(workflowExternalName, {
-                taskQueue: workflowExternalName || 'agentprocess_QUEUE',
-                workflowId: request.requestId || `workflow-${Date.now()}`,
-                searchAttributes: {...temporalSearchAttributes},
-                args: [input, config], // Pass input & Config as object with workflowArgs array
-            });
+    //         this.logger.debug(`Workflow function: ${workflowExternalName}`);
+    //         this.logger.debug(`Workflow args: ${JSON.stringify(workflowInputVariables, null, 2)}`);
+    //         // Start the workflow
+    //         const temporalSearchAttributes = this.convertToTemporalSearchAttributes(request);
+    //         const handle = await this.TemporalClient.start(workflowExternalName, {
+    //             taskQueue: workflowExternalName || 'agentprocess_QUEUE',
+    //             workflowId: request.requestId || `workflow-${Date.now()}`,
+    //             searchAttributes: {...temporalSearchAttributes},
+    //             args: [input, config], // Pass input & Config as object with workflowArgs array
+    //         });
 
-            // Workflow timeout set to 30 seconds
-            const result = await Promise.race([
-                handle.result(),
-                new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('Workflow execution timed out')), parseInt(process.env.TEMPORAL_WORKFLOW_TIMEOUT_FOR_SYNC || '30000'))
-                )
-            ]);
+    //         // Workflow timeout set to 30 seconds
+    //         const result = await Promise.race([
+    //             handle.result(),
+    //             new Promise((_, reject) =>
+    //                 setTimeout(() => reject(new Error('Workflow execution timed out')), parseInt(process.env.TEMPORAL_WORKFLOW_TIMEOUT_FOR_SYNC || '30000'))
+    //             )
+    //         ]);
 
-            // Update response on success
-            response.workflowExecutionResult.isStarted = true;
-            response.workflowExecutionResult.result = result;
-            response.workflowExecutionResult.workflowQueueName = handle.workflowId;
-            response.workflowExecutionResult.status = 'RUNNING';
-            this.logger.debug(`Workflow completed successfully with result: ${result}`);
-            return response;
-        } catch (error) {
-            // Update error handling to handle timeout specifically
-            const errorMessage = error.message.includes('timed out')
-                ? 'Workflow execution timed out after 30 seconds'
-                : error.message;
+    //         // Update response on success
+    //         response.workflowExecutionResult.isStarted = true;
+    //         response.workflowExecutionResult.result = result;
+    //         response.workflowExecutionResult.workflowQueueName = handle.workflowId;
+    //         response.workflowExecutionResult.status = 'RUNNING';
+    //         this.logger.debug(`Workflow completed successfully with result: ${result}`);
+    //         return response;
+    //     } catch (error) {
+    //         // Update error handling to handle timeout specifically
+    //         const errorMessage = error.message.includes('timed out')
+    //             ? 'Workflow execution timed out after 30 seconds'
+    //             : error.message;
 
-            this.logger.error(`Failed to execute workflow: ${errorMessage}`);
-            throw new BadRequestException({
-                message: 'Failed to execute workflow',
-                errorSuperDetails: { ...error },
-            });
-        }
-    }
+    //         this.logger.error(`Failed to execute workflow: ${errorMessage}`);
+    //         throw new BadRequestException({
+    //             message: 'Failed to execute workflow',
+    //             errorSuperDetails: { ...error },
+    //         });
+    //     }
+    // }
 
     /**
     * Execute the workflow with the provided workflowInput.
     */
-    async executeWorkflowAsync(
-        request: OB1Workflow.WorkflowSubServiceExecuteRequest,
-    ): Promise<OB1Workflow.WorkflowExecutionResponse> {
-        const { workflow, workflowInputVariables, workflowENVInputVariables, workflowExecutionConfig } = request;
-        const response: OB1Workflow.WorkflowExecutionResponse = {
-            workflowExecutionResult: {
-                isStarted: false,
-                errors: [],
-                workflowQueueName: '',
-                result: null,
-                temporalWorkflowId: '',
-                status: 'UNKNOWN'
-            },
-        };
+    // async executeWorkflowAsync(
+    //     request: OB1Workflow.WorkflowSubServiceExecuteRequest,
+    // ): Promise<OB1Workflow.WorkflowExecutionResponse> {
+    //     const { workflow, workflowInputVariables, workflowENVInputVariables, workflowExecutionConfig } = request;
+    //     const response: OB1Workflow.WorkflowExecutionResponse = {
+    //         workflowExecutionResult: {
+    //             isStarted: false,
+    //             errors: [],
+    //             workflowQueueName: '',
+    //             result: null,
+    //             temporalWorkflowId: '',
+    //             status: 'UNKNOWN'
+    //         },
+    //     };
 
-        try {
-            const workflowArgs = this.tsValidationOb1Service.validateInputAgainstInputSchema(workflow.workflowInputSchema, workflowInputVariables);
-            const workflowExternalName = workflow.workflowExternalName;
+    //     try {
+    //         const workflowArgs = this.tsValidationOb1Service.validateInputAgainstInputSchema(workflow.workflowInputSchema, workflowInputVariables);
+    //         const workflowExternalName = workflow.workflowExternalName;
 
-            const allWorkflowsResult = await this.collectWorkflowHierarchy(workflow.workflowId);
-            // Workflow Validation and Code Preparation result contains all necessary data for workflow execution
-            const {allWorkflows, workflowToSubworkflowsMap, workflowActivityCodeMap, workflowActivityImportMap, workflowUniqueActivityNames} = allWorkflowsResult;
-            for (const workflow of allWorkflows) {
-                const workflowValidationResponse = await this.workflowLoadingV2Service.validateWorkflowAndPrepareCodeForExecution({
-                    mainWorkflow: workflow,
-                    workflowENVInputVariables: workflowENVInputVariables,
-                    workflowActivityCodeMap,
-                    workflowUniqueActivityNames,
-                });
-                // Load the workflow, activity and ENV to Redis
-                const workflowLoadingResponse = await this.workflowLoadingV2Service.loadAnyWorkflowToRedis({
-                    workflowCode: workflowValidationResponse.updatedWorkflowCode,
-                    workflowExternalName: workflow.workflowExternalName,
-                });
+    //         const allWorkflowsResult = await this.collectWorkflowHierarchy(workflow.workflowId);
+    //         // Workflow Validation and Code Preparation result contains all necessary data for workflow execution
+    //         const {allWorkflows, workflowToSubworkflowsMap, workflowActivityCodeMap, workflowActivityImportMap, workflowUniqueActivityNames} = allWorkflowsResult;
+    //         for (const workflow of allWorkflows) {
+    //             const workflowValidationResponse = await this.workflowLoadingV2Service.validateWorkflowAndPrepareCodeForExecution({
+    //                 mainWorkflow: workflow,
+    //                 workflowENVInputVariables: workflowENVInputVariables,
+    //                 workflowActivityCodeMap,
+    //                 workflowUniqueActivityNames,
+    //             });
+    //             // Load the workflow, activity and ENV to Redis
+    //             const workflowLoadingResponse = await this.workflowLoadingV2Service.loadAnyWorkflowToRedis({
+    //                 workflowCode: workflowValidationResponse.updatedWorkflowCode,
+    //                 workflowExternalName: workflow.workflowExternalName,
+    //             });
     
-                const activityLoadingResponse = await this.activityLoadingV2Service.loadAnyActivityToRedis({
-                    workflowExternalName: workflow.workflowExternalName,
-                    workflowId: workflow.workflowId,
-                    workflowActivityCodeMap: workflowActivityCodeMap,
-                    workflowActivityImportMap:workflowActivityImportMap,
-                });
-            }
+    //             const activityLoadingResponse = await this.activityLoadingV2Service.loadAnyActivityToRedis({
+    //                 workflowExternalName: workflow.workflowExternalName,
+    //                 workflowId: workflow.workflowId,
+    //                 workflowActivityCodeMap: workflowActivityCodeMap,
+    //                 workflowActivityImportMap:workflowActivityImportMap,
+    //             });
+    //         }
 
-            // await this.workflowLoadingV1Service.loadAnyENVToRedis({
-            //     workflowExternalName: workflowExternalName,
-            //     workflowENVInputVariables: workflowENVInputVariables,
-            //     temporalWorkflowId: request.requestId || `workflow-${Date.now()}`,
-            // });
+    //         // await this.workflowLoadingV1Service.loadAnyENVToRedis({
+    //         //     workflowExternalName: workflowExternalName,
+    //         //     workflowENVInputVariables: workflowENVInputVariables,
+    //         //     temporalWorkflowId: request.requestId || `workflow-${Date.now()}`,
+    //         // });
 
-            const input = {
-                ...workflowInputVariables,
-            };
+    //         const input = {
+    //             ...workflowInputVariables,
+    //         };
 
-            const config = {
-                ...workflowExecutionConfig,
-                workflowENVInputVariables,
-            };
-            const temporalSearchAttributes = this.convertToTemporalSearchAttributes(request);
+    //         const config = {
+    //             ...workflowExecutionConfig,
+    //             workflowENVInputVariables,
+    //         };
+    //         const temporalSearchAttributes = this.convertToTemporalSearchAttributes(request);
 
-            const handle = await this.TemporalClient.start(workflowExternalName, {
-                taskQueue: workflowExternalName || 'agentprocess_QUEUE',
-                workflowId: request.requestId || `workflow-${Date.now()}`,
-                searchAttributes: {...temporalSearchAttributes},
-                args: [input, config],
-            });
+    //         const handle = await this.TemporalClient.start(workflowExternalName, {
+    //             taskQueue: workflowExternalName || 'agentprocess_QUEUE',
+    //             workflowId: request.requestId || `workflow-${Date.now()}`,
+    //             searchAttributes: {...temporalSearchAttributes},
+    //             args: [input, config],
+    //         });
 
-            response.workflowExecutionResult.isStarted = true;
-            response.workflowExecutionResult.workflowQueueName = handle.workflowId;
-            response.workflowExecutionResult.temporalWorkflowId = request.requestId;
-            response.workflowExecutionResult.status = 'RUNNING';
+    //         response.workflowExecutionResult.isStarted = true;
+    //         response.workflowExecutionResult.workflowQueueName = handle.workflowId;
+    //         response.workflowExecutionResult.temporalWorkflowId = request.requestId;
+    //         response.workflowExecutionResult.status = 'RUNNING';
 
-            this.logger.debug(`Workflow started asynchronously with Temporal ID: ${request.requestId}`);
-            return response;
-        } catch (error) {
-            this.logger.error(`Failed to execute workflow: ${error.message}`);
-            throw new BadRequestException({
-                message: 'Failed to execute workflow',
-                errorSuperDetails: { ...error },
-            });
-        }
-    }
+    //         this.logger.debug(`Workflow started asynchronously with Temporal ID: ${request.requestId}`);
+    //         return response;
+    //     } catch (error) {
+    //         this.logger.error(`Failed to execute workflow: ${error.message}`);
+    //         throw new BadRequestException({
+    //             message: 'Failed to execute workflow',
+    //             errorSuperDetails: { ...error },
+    //         });
+    //     }
+    // }
 
     /**
     * Execute the workflow with the provided workflowInput.
