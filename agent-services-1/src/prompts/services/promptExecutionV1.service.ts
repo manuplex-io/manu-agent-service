@@ -239,32 +239,32 @@ export class PromptExecutionV1Service {
                     ];
                 }
 
-                if (workflowToolCalls.length > 0) {
-                    const { newToolResults, toolCallLogs } = await this.promptWorkflowExecutionV1Service.executeParallelWorkflowCalls({
-                        toolCalls: workflowToolCalls,
-                        tracing: {
-                            traceId: llmRequest.tracing.traceId,
-                            spanId: llmRequest.tracing.spanId,
-                        },
-                        timeout: promptRequest.promptConfig?.toolTimeout || OB1Prompt.DefaultPromptConfig.DEFAULT_MAX_TOOL_EXECUTION_TIME,
-                        requestMetadata: promptRequest.requestMetadata,
-                        toolENVInputVariables: promptRequest.workflowENVInputVariables,
-                        consultantOrgShortName: promptRequest?.consultantOrgShortName,
-                        personId: promptRequest?.personId,
-                    });
-                    toolResults = { ...toolResults, ...newToolResults };
-                    // workflowResultsForLLMMessage = Array.isArray(newToolResults) ? newToolResults :
-                    //                              (newToolResults ? [newToolResults] : []);
-                    allToolCallLogs.push(...toolCallLogs);
-                    messageHistory = [
-                        ...messageHistory,
-                        ...newToolResults.map(toolResult => ({
-                            role: 'tool' as const,
-                            content: JSON.stringify(toolResult || {}),
-                            tool_call_id: toolResult?.tool_call_id || 'unknown'
-                        }))
-                    ];
-                }
+                // if (workflowToolCalls.length > 0) {
+                //     const { newToolResults, toolCallLogs } = await this.promptWorkflowExecutionV1Service.executeParallelWorkflowCalls({
+                //         toolCalls: workflowToolCalls,
+                //         tracing: {
+                //             traceId: llmRequest.tracing.traceId,
+                //             spanId: llmRequest.tracing.spanId,
+                //         },
+                //         timeout: promptRequest.promptConfig?.toolTimeout || OB1Prompt.DefaultPromptConfig.DEFAULT_MAX_TOOL_EXECUTION_TIME,
+                //         requestMetadata: promptRequest.requestMetadata,
+                //         toolENVInputVariables: promptRequest.workflowENVInputVariables,
+                //         consultantOrgShortName: promptRequest?.consultantOrgShortName,
+                //         personId: promptRequest?.personId,
+                //     });
+                //     toolResults = { ...toolResults, ...newToolResults };
+                //     // workflowResultsForLLMMessage = Array.isArray(newToolResults) ? newToolResults :
+                //     //                              (newToolResults ? [newToolResults] : []);
+                //     allToolCallLogs.push(...toolCallLogs);
+                //     messageHistory = [
+                //         ...messageHistory,
+                //         ...newToolResults.map(toolResult => ({
+                //             role: 'tool' as const,
+                //             content: JSON.stringify(toolResult || {}),
+                //             tool_call_id: toolResult?.tool_call_id || 'unknown'
+                //         }))
+                //     ];
+                // }
 
                 llmRequest.messageHistory = messageHistory;
 
