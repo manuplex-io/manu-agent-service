@@ -66,14 +66,14 @@ export class WorkflowExecutionV1Service {
             //         default:
             //             throw new BadRequestException(`Unsupported workflowLang: ${workflow.workflowLang}`);
             //     }
-            case OB1Workflow.WorkflowExecutionType.SCHEDULED:
-                switch (workflow.workflowLang) {
-                    case OB1Workflow.WorkflowLang.TYPESCRIPT:
-                        return this.workflowExecutionTypeScriptV1Service.executeWorkflowScheduled(subServiceRequest);
+            // case OB1Workflow.WorkflowExecutionType.SCHEDULED:
+            //     switch (workflow.workflowLang) {
+            //         case OB1Workflow.WorkflowLang.TYPESCRIPT:
+            //             return this.workflowExecutionTypeScriptV1Service.executeWorkflowScheduled(subServiceRequest);
         
-                    default:
-                        throw new BadRequestException(`Unsupported workflowLang: ${workflow.workflowLang}`);
-                }
+            //         default:
+            //             throw new BadRequestException(`Unsupported workflowLang: ${workflow.workflowLang}`);
+            //     }
             // case OB1Workflow.WorkflowExecutionType.ASYNC_MULTIPLE:
             //     switch (workflow.workflowLang) {
             //         case OB1Workflow.WorkflowLang.TYPESCRIPT:
@@ -92,9 +92,9 @@ export class WorkflowExecutionV1Service {
     }
 
     
-    async loadWorkflowCode(workflowExternalName: string): Promise<void> {
-        await this.workflowExecutionTypeScriptV1Service.loadWorkflowCodeToRedis(
-            workflowExternalName,
-        );
-    }
+    // async loadWorkflowCode(workflowExternalName: string): Promise<void> {
+    //     await this.workflowExecutionTypeScriptV1Service.loadWorkflowCodeToRedis(
+    //         workflowExternalName,
+    //     );
+    // }
 }

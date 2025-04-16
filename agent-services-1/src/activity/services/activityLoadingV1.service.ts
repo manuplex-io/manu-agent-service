@@ -6,7 +6,7 @@ import { Repository } from 'typeorm';
 // import * as ts from 'typescript';
 
 import { OB1AgentActivities } from '../entities/ob1-agent-activities.entity';
-import { RedisOb1Service } from '../../aa-common/redis-ob1/services/redis-ob1.service';
+// import { RedisOb1Service } from '../../aa-common/redis-ob1/services/redis-ob1.service';
 
 import { OB1Activity } from '../interfaces/activity.interface';
 import { TSValidationOb1Service } from '../../aa-common/ts-validation-ob1/services/ts-validation-ob1.service';
@@ -19,45 +19,45 @@ export class ActivityLoadingV1Service {
 
     constructor(
         @InjectRepository(OB1AgentActivities) private readonly activityRepository: Repository<OB1AgentActivities>,
-        private readonly redisService: RedisOb1Service,
+        // private readonly redisService: RedisOb1Service,
         private readonly tsValidationOb1Service: TSValidationOb1Service,
     ) { }
     // Load Any Redis
     // NOTE: We haven't decided what to return from this function.
-    async loadAnyActivityToRedis(activityInput: OB1Activity.ActivityLoadingRequest): Promise<void> {
-        try {
-            const { activityCode, imports, workflowExternalName } = activityInput;
-            let isTTLUpdated = false;
-            const redisActivityKey = `${this.REDIS_WORKFLOW_BASE_KEY}:${workflowExternalName}:activityCode`;
-            const redisImportKey = `${this.REDIS_WORKFLOW_BASE_KEY}:${workflowExternalName}:imports`;
+    // async loadAnyActivityToRedis(activityInput: OB1Activity.ActivityLoadingRequest): Promise<void> {
+    //     try {
+    //         const { activityCode, imports, workflowExternalName } = activityInput;
+    //         let isTTLUpdated = false;
+    //         const redisActivityKey = `${this.REDIS_WORKFLOW_BASE_KEY}:${workflowExternalName}:activityCode`;
+    //         const redisImportKey = `${this.REDIS_WORKFLOW_BASE_KEY}:${workflowExternalName}:imports`;
 
-            const redisExistingActivityCode = await this.redisService.get(redisActivityKey);
-            const redisExistingImports = await this.redisService.getSet(redisImportKey);
+    //         const redisExistingActivityCode = await this.redisService.get(redisActivityKey);
+    //         const redisExistingImports = await this.redisService.getSet(redisImportKey);
 
             
-            if(redisExistingActivityCode && redisExistingImports){
-                const ttlUpdateResult = await this.redisService.updateTTL([redisActivityKey, redisImportKey]);
-                if(ttlUpdateResult){
-                    isTTLUpdated = true;
-                }
-            }
-            // return only if all ttl are updated, pulled out return statement for now.
-            if(isTTLUpdated)
-                return;
+    //         if(redisExistingActivityCode && redisExistingImports){
+    //             const ttlUpdateResult = await this.redisService.updateTTL([redisActivityKey, redisImportKey]);
+    //             if(ttlUpdateResult){
+    //                 isTTLUpdated = true;
+    //             }
+    //         }
+    //         // return only if all ttl are updated, pulled out return statement for now.
+    //         if(isTTLUpdated)
+    //             return;
 
-            // More error handling needed
-            const activityResult = await this.redisService.set(redisActivityKey, activityCode);
-            const importResult = await this.redisService.set(redisImportKey, imports);
+    //         // More error handling needed
+    //         const activityResult = await this.redisService.set(redisActivityKey, activityCode);
+    //         const importResult = await this.redisService.set(redisImportKey, imports);
 
-            return;
-        } catch (error) {
-            this.logger.log(`Failed to load activity:\n${JSON.stringify(error, null, 2)}`);
-            throw new BadRequestException({
-                message: 'Failed to load activity',
-                errorSuperDetails: { ...error },
-            });
-        }
-    }
+    //         return;
+    //     } catch (error) {
+    //         this.logger.log(`Failed to load activity:\n${JSON.stringify(error, null, 2)}`);
+    //         throw new BadRequestException({
+    //             message: 'Failed to load activity',
+    //             errorSuperDetails: { ...error },
+    //         });
+    //     }
+    // }
 }
 
 

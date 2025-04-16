@@ -65,14 +65,14 @@ export class WorkflowExecutionV2Service {
             //         default:
             //             throw new BadRequestException(`Unsupported workflowLang: ${workflow.workflowLang}`);
             //     }
-            case OB1Workflow.WorkflowExecutionType.SCHEDULED:
-                switch (workflow.workflowLang) {
-                    case OB1Workflow.WorkflowLang.TYPESCRIPT:
-                        return this.workflowExecutionTypeScriptV2Service.executeWorkflowScheduled(subServiceRequest);
+            // case OB1Workflow.WorkflowExecutionType.SCHEDULED:
+            //     switch (workflow.workflowLang) {
+            //         case OB1Workflow.WorkflowLang.TYPESCRIPT:
+            //             return this.workflowExecutionTypeScriptV2Service.executeWorkflowScheduled(subServiceRequest);
         
-                    default:
-                        throw new BadRequestException(`Unsupported workflowLang: ${workflow.workflowLang}`);
-                }
+            //         default:
+            //             throw new BadRequestException(`Unsupported workflowLang: ${workflow.workflowLang}`);
+            //     }
             // case OB1Workflow.WorkflowExecutionType.ASYNC_MULTIPLE:
             //     switch (workflow.workflowLang) {
             //         case OB1Workflow.WorkflowLang.TYPESCRIPT:
@@ -86,18 +86,18 @@ export class WorkflowExecutionV2Service {
         }
     }
 
-    async executeActivityAsWorkflow(request: OB1Workflow.ActivityExecuteAsWorkflowRequest): Promise<OB1Workflow.WorkflowExecutionResponse> {
-        return this.workflowExecutionTypeScriptV2Service.executeWorkflowFromActivity(request);
-    }
+    // async executeActivityAsWorkflow(request: OB1Workflow.ActivityExecuteAsWorkflowRequest): Promise<OB1Workflow.WorkflowExecutionResponse> {
+    //     return this.workflowExecutionTypeScriptV2Service.executeWorkflowFromActivity(request);
+    // }
 
-    async getWorkflowExecutionStatus(temporalWorkflowId: string): Promise<OB1Workflow.WorkflowExecutionResponse> {
-        return this.workflowExecutionTypeScriptV2Service.getWorkflowExecutionStatus(temporalWorkflowId);
-    }
+    // async getWorkflowExecutionStatus(temporalWorkflowId: string): Promise<OB1Workflow.WorkflowExecutionResponse> {
+    //     return this.workflowExecutionTypeScriptV2Service.getWorkflowExecutionStatus(temporalWorkflowId);
+    // }
 
     
-    async loadWorkflowCode(workflowExternalName: string): Promise<void> {
-        await this.workflowExecutionTypeScriptV2Service.loadWorkflowCodeToRedis(
-            workflowExternalName,
-        );
-    }
+    // async loadWorkflowCode(workflowExternalName: string): Promise<void> {
+    //     await this.workflowExecutionTypeScriptV2Service.loadWorkflowCodeToRedis(
+    //         workflowExternalName,
+    //     );
+    // }
 }
